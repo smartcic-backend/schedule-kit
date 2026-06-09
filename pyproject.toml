@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "schedule-kit"
+version = "0.1.0"
+description = "Django 排程管理套件：標準化 Celery 排程的建立、同步與執行觀測"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+dependencies = [
+    "Django>=4.2",
+    "djangorestframework>=3.14",
+    "celery>=5.3",
+    "django-celery-beat>=2.5",
+    "django-filter>=23.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-django>=4.8",
+    "psycopg2-binary>=2.9",
+    "requests>=2.31",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.settings"
+pythonpath = ["."]
+markers = [
+    "e2e: end-to-end tests that require running Docker services",
+]

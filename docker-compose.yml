@@ -1,0 +1,88 @@
+services:
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: myservice
+      POSTGRES_USER: myservice
+      POSTGRES_PASSWORD: myservice
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U myservice"]
+      interval: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.13-alpine
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 5s
+      retries: 5
+
+  mock-agent:
+    build: tests/mock_agent
+    ports:
+      - "8001:8001"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/status')"]
+      interval: 5s
+      retries: 5
+
+  web:
+    build: .
+    command: >
+      sh -c "python manage.py migrate --no-input &&
+             python manage.py create_e2e_user &&
+             python manage.py seed_data &&
+             python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgres://myservice:myservice@db:5432/myservice
+      CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672/
+      AGENT_URL: http://mock-agent:8001/dispatch
+      CALLBACK_URL: http://web:8000/api/agent-callback/
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      mock-agent:
+        condition: service_healthy
+
+  worker:
+    build: .
+    command: celery -A example worker -l info -Q myservice
+    volumes:
+      - .:/app
+    environment:
+      DATABASE_URL: postgres://myservice:myservice@db:5432/myservice
+      CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672/
+      AGENT_URL: http://mock-agent:8001/dispatch
+      CALLBACK_URL: http://web:8000/api/agent-callback/
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  beat:
+    build: .
+    command: celery -A example beat -l info
+    volumes:
+      - .:/app
+    environment:
+      DATABASE_URL: postgres://myservice:myservice@db:5432/myservice
+      CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672/
+
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
