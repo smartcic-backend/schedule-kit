@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "schedule-kit"
-version = "0.1.0"
+version = "0.1.1"
 description = "Django 排程管理套件：標準化 Celery 排程的建立、同步與執行觀測"
 requires-python = ">=3.10"
 license = {text = "MIT"}
