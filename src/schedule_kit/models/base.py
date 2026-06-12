@@ -18,7 +18,11 @@ class BaseSchedulerTask(models.Model):
     description = models.TextField(blank=True, default="")
     status = models.CharField(max_length=8, choices=STATUS, default="active")
     execution_cycle = models.CharField(max_length=128)
-    timezone = models.CharField(max_length=64, default="UTC")
+    timezone = models.CharField(
+        max_length=64,
+        default="UTC",
+        help_text="IANA 時區名稱（例如 Asia/Taipei、UTC）。由後端自動帶入請求使用者的時區設定，前端無需填寫。",
+    )
     task = models.OneToOneField(
         PeriodicTask,
         on_delete=models.SET_NULL,
