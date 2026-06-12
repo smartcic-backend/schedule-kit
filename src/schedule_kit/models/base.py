@@ -21,7 +21,7 @@ class BaseSchedulerTask(models.Model):
     timezone = models.CharField(max_length=64, default="UTC")
     task = models.OneToOneField(
         PeriodicTask,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="%(class)s",
