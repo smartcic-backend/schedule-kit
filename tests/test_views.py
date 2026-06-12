@@ -120,7 +120,7 @@ def _make_record(task_id, status="success", created_by_id=None):
         task_id=task_id,
         task_created_by_id=created_by_id,
         status=status,
-        start_time=timezone.now(),
+        occurred_at=timezone.now(),
     )
 
 

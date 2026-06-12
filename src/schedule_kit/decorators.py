@@ -15,7 +15,7 @@ def recorded_task(name: str, queue: str = None, **celery_kwargs):
             from django_celery_beat.models import PeriodicTask
 
             task_id_arg = args[0] if args else kwargs.get("task_id")
-            start_time = timezone.now()
+            occurred_at = timezone.now()
 
             pt = None
             try:
@@ -31,7 +31,7 @@ def recorded_task(name: str, queue: str = None, **celery_kwargs):
                 task_id=task_id_arg,
                 celery_task_id=self.request.id or "",
                 status="running",
-                start_time=start_time,
+                occurred_at=occurred_at,
                 periodic_task=pt,
             )
 

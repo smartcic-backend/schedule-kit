@@ -15,7 +15,7 @@ def cleanup_execution_records():
     for status in ("pending", "running"):
         ExecutionRecord.objects.filter(
             status=status,
-            start_time__lt=timeout_cutoff,
+            occurred_at__lt=timeout_cutoff,
         ).update(
             status="fail",
             end_time=now,
@@ -24,7 +24,7 @@ def cleanup_execution_records():
 
     # 超過天數上限的紀錄刪除
     cutoff_date = now - timedelta(days=get_keep_max_days())
-    ExecutionRecord.objects.filter(start_time__lt=cutoff_date).delete()
+    ExecutionRecord.objects.filter(occurred_at__lt=cutoff_date).delete()
 
     # 同一 task_id 超過筆數上限的刪除（保留最新的）
     max_count = get_keep_max_count()
@@ -34,7 +34,7 @@ def cleanup_execution_records():
     for task_id in task_ids:
         keep_ids = list(
             ExecutionRecord.objects.filter(task_id=task_id)
-            .order_by("-start_time")
+            .order_by("-occurred_at")
             .values_list("id", flat=True)[:max_count]
         )
         ExecutionRecord.objects.filter(task_id=task_id).exclude(

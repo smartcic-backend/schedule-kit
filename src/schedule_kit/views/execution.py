@@ -15,4 +15,4 @@ class BaseExecutionRecordViewSet(
     filterset_class = BaseExecutionRecordFilterSet
 
     def get_queryset(self):
-        return ExecutionRecord.objects.all().order_by("-start_time")
+        return ExecutionRecord.objects.all().order_by("-occurred_at")

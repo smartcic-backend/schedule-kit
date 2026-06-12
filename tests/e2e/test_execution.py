@@ -57,7 +57,7 @@ def test_execution_record_status(session, fast_rule):
 
     records = _get_records(session, task_id)
     terminal = [rec for rec in records if rec["status"] in ("success", "fail")]
-    assert terminal[0]["start_time"] is not None
+    assert terminal[0]["occurred_at"] is not None
     assert terminal[0]["end_time"] is not None
 
 

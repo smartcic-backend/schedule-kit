@@ -17,7 +17,7 @@ def make_record(task_id=U(1), status="success", days_ago=0):
         task_function="test_task",
         task_id=task_id,
         status=status,
-        start_time=timezone.now() - timedelta(days=days_ago, seconds=1),
+        occurred_at=timezone.now() - timedelta(days=days_ago, seconds=1),
     )
 
 
@@ -40,7 +40,7 @@ def test_cleanup_keeps_newest_records():
             task_function="test_task",
             task_id=U(2),
             status="success",
-            start_time=now - timedelta(minutes=i),
+            occurred_at=now - timedelta(minutes=i),
             message=f"record {i}",
         )
 
@@ -48,7 +48,7 @@ def test_cleanup_keeps_newest_records():
 
     remaining = list(
         ExecutionRecord.objects.filter(task_id=U(2))
-        .order_by("-start_time")
+        .order_by("-occurred_at")
         .values_list("message", flat=True)
     )
     assert len(remaining) == 10
@@ -69,8 +69,8 @@ def test_cleanup_removes_old_records():
 def test_cleanup_marks_stale_pending_as_fail():
     # 建立超時的 pending（2 小時前，超過測試設定的 1 小時）
     r = make_record(task_id=U(4), status="pending")
-    r.start_time = timezone.now() - timedelta(hours=2)
-    r.save(update_fields=["start_time"])
+    r.occurred_at = timezone.now() - timedelta(hours=2)
+    r.save(update_fields=["occurred_at"])
 
     cleanup_execution_records()
 
@@ -92,8 +92,8 @@ def test_cleanup_leaves_recent_pending_alone():
 @pytest.mark.django_db
 def test_cleanup_marks_stale_running_as_fail():
     r = make_record(task_id=U(6), status="running")
-    r.start_time = timezone.now() - timedelta(hours=2)
-    r.save(update_fields=["start_time"])
+    r.occurred_at = timezone.now() - timedelta(hours=2)
+    r.save(update_fields=["occurred_at"])
 
     cleanup_execution_records()
 
