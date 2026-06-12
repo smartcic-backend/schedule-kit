@@ -11,7 +11,6 @@
 # settings.py
 CELERY_SCHEDULER = {
     "QUEUE_NAME":                "myservice",
-    "TIMEZONE":                  "Asia/Taipei",
     "SAFETY_MARGIN_SECONDS":     30,
     "MIN_EXPIRE_SECONDS":        60,
     "MAX_EXPIRE_SECONDS":        86400,
@@ -26,7 +25,6 @@ CELERY_SCHEDULER = {
 | 參數 | 預設值 | 說明 |
 |------|--------|------|
 | `QUEUE_NAME` | `"celery"` | Worker 監聽的 queue 名稱，同步時寫入 `PeriodicTask` |
-| `TIMEZONE` | `"UTC"` | 排程時區，寫入 `PeriodicTask` 的 `crontab.timezone` |
 | `SAFETY_MARGIN_SECONDS` | `30` | expire 計算的安全邊際（秒），加到估算的執行週期上 |
 | `MIN_EXPIRE_SECONDS` | `60` | expire 下限，避免高頻任務 expire 過短 |
 | `MAX_EXPIRE_SECONDS` | `86400` | expire 上限（1 天），避免低頻任務 expire 過長 |

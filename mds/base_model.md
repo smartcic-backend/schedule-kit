@@ -9,11 +9,14 @@
 
 | 欄位 | 型別 | 說明 |
 |------|------|------|
+| `id` | `UUIDField(primary_key=True, default=uuid4)` | 主鍵。統一使用 UUID，跨環境匯出入不會發生 ID 衝突 |
 | `title` | `CharField(max_length=70, unique=True)` | 排程名稱，全域唯一 |
 | `description` | `TextField(blank=True, default="")` | 排程描述 |
 | `status` | `CharField(choices=STATUS, default="active")` | `active` / `disabled` |
 | `execution_cycle` | `CharField(max_length=128)` | 排程字串，必填。接受 5 欄位 crontab（`*/5 * * * *`）或 `@every <duration>`（`@every 30m`） |
-| `task` | `OneToOneField(PeriodicTask, null=True, blank=True)` | 對應的 django-celery-beat PeriodicTask，由套件 signal 自動維護 |
+| `timezone` | `CharField(max_length=64, default="UTC")` | 排程時區，須為合法的 IANA 時區名稱 |
+| `task` | `OneToOneField(PeriodicTask, null=True, blank=True, on_delete=CASCADE, related_name="%(class)s")` | 對應的 django-celery-beat PeriodicTask，由套件 signal 自動維護 |
+| `created_by` | `FK(AUTH_USER_MODEL, null=True, on_delete=SET_NULL, db_constraint=False)` | 建立者，刪除使用者時設為 null；`db_constraint=False` 允許跨 DB 或軟刪除情境 |
 | `created_at` | `DateTimeField(auto_now_add=True)` | 建立時間 |
 | `updated_at` | `DateTimeField(auto_now=True)` | 更新時間 |
 
@@ -82,11 +85,36 @@ model.status = "disabled"  →  PeriodicTask.enabled = False  → Beat 跳過
 
 ---
 
+## EmailNotification mixin
+
+`EmailNotification` 是一個獨立的 abstract mixin，與 `BaseSchedulerTask` 組合使用，為子類加上 email 通知欄位。
+
+```python
+from schedule_kit.models import EmailNotification
+
+class AlertRuleTask(BaseSchedulerTask, EmailNotification):
+    ...
+```
+
+### 欄位
+
+| 欄位 | 型別 | 說明 |
+|------|------|------|
+| `task_email_enabled` | `BooleanField(default=False)` | 是否啟用 email 通知 |
+| `task_email_to` | `JSONField(default=list, blank=True)` | 收件人清單；使用 JSONField 而非 postgres ArrayField，保持資料庫無關性 |
+| `task_success_send_email` | `BooleanField(default=False)` | 成功時是否也寄信（預設只在失敗時寄） |
+
+> `EmailNotification` 本身不含任何業務邏輯，寄信動作由 task 函式或 signal 負責。
+
+---
+
 ## 相關程式位置
 
 | 職責 | 位置 |
 |------|------|
 | `BaseSchedulerTask` 定義 | `src/schedule_kit/models/base.py` |
+| `EmailNotification` 定義 | `src/schedule_kit/models/base.py` |
+| 公開匯出（`__all__`） | `src/schedule_kit/models/__init__.py` |
 | signal → PeriodicTask 同步 | `src/schedule_kit/services/sync.py` |
 | `execution_cycle` 格式驗證 | `src/schedule_kit/utils/cron.py` |
 | 繼承範例 | `example/models.py` |

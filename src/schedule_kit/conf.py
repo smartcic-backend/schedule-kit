@@ -2,7 +2,6 @@ from django.conf import settings
 
 _DEFAULTS = {
     "QUEUE_NAME": "celery",
-    "TIMEZONE": "UTC",
     "SAFETY_MARGIN_SECONDS": 30,
     "MIN_EXPIRE_SECONDS": 60,
     "MAX_EXPIRE_SECONDS": 86400,
@@ -19,9 +18,6 @@ def _get(key):
 
 def get_queue_name() -> str:
     return _get("QUEUE_NAME")
-
-def get_timezone() -> str:
-    return _get("TIMEZONE")
 
 def get_safety_margin() -> int:
     return _get("SAFETY_MARGIN_SECONDS")

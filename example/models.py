@@ -1,6 +1,6 @@
 from django.db import models
 
-from schedule_kit.models import BaseSchedulerTask
+from schedule_kit.models import BaseSchedulerTask, EmailNotification
 
 
 class AsyncAlertRuleTask(BaseSchedulerTask):
@@ -11,12 +11,6 @@ class AsyncAlertRuleTask(BaseSchedulerTask):
     cpu_threshold = models.FloatField()
     target_host = models.CharField(max_length=255)
     notify_email = models.EmailField()
-    created_by = models.ForeignKey(
-        "auth.User",
-        null=True,
-        on_delete=models.SET_NULL,
-        related_name="+",
-    )
 
     class Meta:
         verbose_name = "CPU 告警排程（非同步）"
@@ -25,7 +19,7 @@ class AsyncAlertRuleTask(BaseSchedulerTask):
         return [self.id]
 
 
-class AlertRuleTask(BaseSchedulerTask):
+class AlertRuleTask(BaseSchedulerTask, EmailNotification):
     """CPU 超閾值告警排程。"""
 
     task_name = "alert_rule_task"
@@ -33,12 +27,6 @@ class AlertRuleTask(BaseSchedulerTask):
     cpu_threshold = models.FloatField()
     target_host = models.CharField(max_length=255)
     notify_email = models.EmailField()
-    created_by = models.ForeignKey(
-        "auth.User",
-        null=True,
-        on_delete=models.SET_NULL,
-        related_name="+",
-    )
 
     class Meta:
         verbose_name = "CPU 告警排程"

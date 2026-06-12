@@ -1,6 +1,13 @@
+import uuid
+
 import pytest
 from django.utils import timezone
 from schedule_kit.models import ExecutionRecord
+
+
+def U(n: int) -> uuid.UUID:
+    """測試用固定 UUID，方便以小整數區分不同排程。"""
+    return uuid.UUID(int=n)
 
 BASE = {
     "title": "View Test Alert",
@@ -119,17 +126,17 @@ def _make_record(task_id, status="success", created_by_id=None):
 
 @pytest.mark.django_db
 def test_filter_by_task_id(auth_client):
-    _make_record(task_id=10)
-    _make_record(task_id=20)
-    r = auth_client.get("/api/executions/?task_id=10")
+    _make_record(task_id=U(10))
+    _make_record(task_id=U(20))
+    r = auth_client.get(f"/api/executions/?task_id={U(10)}")
     assert r.status_code == 200
-    assert all(rec["task_id"] == 10 for rec in r.json())
+    assert all(rec["task_id"] == str(U(10)) for rec in r.json())
 
 
 @pytest.mark.django_db
 def test_filter_by_status(auth_client):
-    _make_record(task_id=1, status="success")
-    _make_record(task_id=1, status="fail")
+    _make_record(task_id=U(1), status="success")
+    _make_record(task_id=U(1), status="fail")
     r = auth_client.get("/api/executions/?status=success")
     assert all(rec["status"] == "success" for rec in r.json())
     r = auth_client.get("/api/executions/?status=fail")
@@ -138,8 +145,8 @@ def test_filter_by_status(auth_client):
 
 @pytest.mark.django_db
 def test_regular_user_sees_only_own_records(auth_client, user, other_user):
-    _make_record(task_id=1, created_by_id=user.id)
-    _make_record(task_id=2, created_by_id=other_user.id)
+    _make_record(task_id=U(1), created_by_id=user.id)
+    _make_record(task_id=U(2), created_by_id=other_user.id)
     r = auth_client.get("/api/executions/")
     assert r.status_code == 200
     assert all(rec["task_created_by_id"] == user.id for rec in r.json())
@@ -147,8 +154,8 @@ def test_regular_user_sees_only_own_records(auth_client, user, other_user):
 
 @pytest.mark.django_db
 def test_staff_user_sees_all_records(staff_client, user, other_user):
-    _make_record(task_id=1, created_by_id=user.id)
-    _make_record(task_id=2, created_by_id=other_user.id)
+    _make_record(task_id=U(1), created_by_id=user.id)
+    _make_record(task_id=U(2), created_by_id=other_user.id)
     r = staff_client.get("/api/executions/")
     assert r.status_code == 200
     assert len(r.json()) == 2

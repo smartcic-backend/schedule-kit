@@ -1,6 +1,7 @@
 import pytest
-from django_celery_beat.models import PeriodicTask
+from django_celery_beat.models import IntervalSchedule, PeriodicTask
 from example.models import AlertRuleTask
+from schedule_kit.services import resync_all
 
 BASE = {
     "title": "Sync Test",
@@ -93,6 +94,64 @@ def test_crontab_uses_instance_timezone():
     task = make(title="Timezone TW Test", timezone="Asia/Taipei")
     task.refresh_from_db()
     assert str(task.task.crontab.timezone) == "Asia/Taipei"
+
+
+@pytest.mark.django_db
+def test_resync_all_restores_externally_disabled_task():
+    task = make(title="Resync Restore")
+    task.refresh_from_db()
+    # 模擬外部直接停用 PeriodicTask（例如 worker stop API）
+    PeriodicTask.objects.filter(pk=task.task_id).update(enabled=False)
+
+    result = resync_all(AlertRuleTask)
+
+    task.refresh_from_db()
+    assert task.task.enabled is True
+    assert result["synced"] == 1
+
+
+@pytest.mark.django_db
+def test_resync_all_removes_orphan_periodic_task():
+    interval, _ = IntervalSchedule.objects.get_or_create(
+        every=60, period=IntervalSchedule.SECONDS
+    )
+    PeriodicTask.objects.create(name="Orphan PT", task="alert_rule_task", interval=interval)
+
+    result = resync_all(AlertRuleTask)
+
+    assert result["removed"] == 1
+    assert not PeriodicTask.objects.filter(name="Orphan PT").exists()
+
+
+@pytest.mark.django_db
+def test_resync_all_keeps_unrelated_periodic_tasks():
+    interval, _ = IntervalSchedule.objects.get_or_create(
+        every=60, period=IntervalSchedule.SECONDS
+    )
+    PeriodicTask.objects.create(name="Other Service PT", task="other_task", interval=interval)
+
+    result = resync_all(AlertRuleTask)
+
+    assert result["removed"] == 0
+    assert PeriodicTask.objects.filter(name="Other Service PT").exists()
+
+
+@pytest.mark.django_db
+def test_resync_all_rebuilds_detached_reference():
+    # instance 的 task 參照被清空、舊 PeriodicTask 以同名殘留：
+    # 必須先移除孤兒再重建，否則撞 name 唯一性約束
+    task = make(title="Resync Detached")
+    task.refresh_from_db()
+    old_pt_id = task.task_id
+    AlertRuleTask.objects.filter(pk=task.pk).update(task=None)
+
+    result = resync_all(AlertRuleTask)
+
+    task.refresh_from_db()
+    assert task.task is not None
+    assert task.task_id != old_pt_id
+    assert result["removed"] == 1
+    assert PeriodicTask.objects.filter(task="alert_rule_task").count() == 1
 
 
 @pytest.mark.django_db

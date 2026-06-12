@@ -1,11 +1,11 @@
 from rest_framework import serializers
 
-from schedule_kit.serializers import BaseSchedulerSerializer
+from schedule_kit.serializers import BaseSchedulerSerializer, EmailNotificationSerializer
 
 from .models import AlertRuleTask, AsyncAlertRuleTask
 
 
-class AlertRuleTaskSerializer(BaseSchedulerSerializer):
+class AlertRuleTaskSerializer(BaseSchedulerSerializer, EmailNotificationSerializer):
     class Meta:
         model = AlertRuleTask
         fields = "__all__"

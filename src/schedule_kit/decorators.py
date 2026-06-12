@@ -14,14 +14,14 @@ def recorded_task(name: str, queue: str = None, **celery_kwargs):
             from .models.execution import ExecutionRecord
             from django_celery_beat.models import PeriodicTask
 
-            task_id_arg = args[0] if args else kwargs.get("task_id", 0)
+            task_id_arg = args[0] if args else kwargs.get("task_id")
             start_time = timezone.now()
 
             pt = None
             try:
                 pt = PeriodicTask.objects.filter(
                     task=name,
-                    args=json.dumps([task_id_arg]),
+                    args=json.dumps([task_id_arg], default=str),
                 ).first()
             except Exception:
                 pass

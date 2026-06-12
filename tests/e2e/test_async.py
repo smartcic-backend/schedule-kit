@@ -2,10 +2,8 @@
 非同步任務端對端測試。
 流程：Beat 觸發 → worker dispatch 到 mock-agent → mock-agent 回調 → ExecutionRecord 狀態更新。
 
-mock-agent 三種行為（依呼叫順序輪替）：
-  1st call: 5 秒後回調 success
-  2nd call: 5 秒後回調 fail
-  3rd call: 完全不回調（模擬 agent 掛掉）
+mock-agent 的行為由各測試先透過 /set-behavior 顯式設定（success / fail / none），
+不依賴呼叫順序，測試之間互相獨立。
 """
 
 import time
@@ -24,8 +22,9 @@ ASYNC_TASK_BASE = {
 MOCK_AGENT_URL = "http://localhost:8001"
 
 
-def _reset_mock_agent():
-    req.post(f"{MOCK_AGENT_URL}/reset", timeout=5)
+def _set_mock_agent(mode):
+    r = req.post(f"{MOCK_AGENT_URL}/set-behavior", json={"mode": mode}, timeout=5)
+    assert r.status_code == 200, r.text
 
 
 def _get_records(session, task_id, status=None):
@@ -50,8 +49,8 @@ def _delete_rule(session, rule_id):
 
 @pytest.mark.e2e
 def test_async_pending_then_success(session):
-    """mock-agent 第 1 次呼叫：5 秒後回調 success → pending → success。"""
-    _reset_mock_agent()
+    """mock-agent 5 秒後回調 success → pending → success。"""
+    _set_mock_agent("success")
     rule = _create_async_rule(session, "E2E Async Success")
     task_id = rule["id"]
 
@@ -79,19 +78,8 @@ def test_async_pending_then_success(session):
 
 @pytest.mark.e2e
 def test_async_pending_then_fail(session):
-    """mock-agent 第 2 次呼叫：5 秒後回調 fail → pending → fail。"""
-    _reset_mock_agent()
-    # 先跑一次讓 mock-agent count 推進到 2
-    warmup = _create_async_rule(session, "E2E Async Warmup")
-    wait_until(
-        lambda: any(
-            r["status"] in ("pending", "success", "fail")
-            for r in _get_records(session, warmup["id"])
-        ),
-        timeout=60,
-    )
-    _delete_rule(session, warmup["id"])
-
+    """mock-agent 5 秒後回調 fail → pending → fail。"""
+    _set_mock_agent("fail")
     rule = _create_async_rule(session, "E2E Async Fail")
     task_id = rule["id"]
 
@@ -114,21 +102,8 @@ def test_async_pending_then_fail(session):
 
 @pytest.mark.e2e
 def test_async_no_callback_stays_pending(session):
-    """mock-agent 第 3 次呼叫：完全不回調 → record 停在 pending。"""
-    _reset_mock_agent()
-    # 把 mock-agent count 推進到 3（跑兩次 warmup）
-    for i in range(2):
-        warmup = _create_async_rule(session, f"E2E Async Warmup NoCallback {i}")
-        _warmup_id = warmup["id"]
-        wait_until(
-            lambda: any(
-                r["status"] in ("pending", "success", "fail")
-                for r in _get_records(session, _warmup_id)
-            ),
-            timeout=60,
-        )
-        _delete_rule(session, warmup["id"])
-
+    """mock-agent 完全不回調 → record 停在 pending。"""
+    _set_mock_agent("none")
     rule = _create_async_rule(session, "E2E Async No Callback")
     task_id = rule["id"]
 
@@ -147,3 +122,4 @@ def test_async_no_callback_stays_pending(session):
         assert len(records) > 0, "expected record to remain pending (no callback)"
     finally:
         _delete_rule(session, rule["id"])
+        _set_mock_agent("success")

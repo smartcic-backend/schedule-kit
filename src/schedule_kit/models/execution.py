@@ -13,7 +13,7 @@ class ExecutionRecord(models.Model):
     task_title = models.CharField(max_length=70, blank=True, default="")
     task_function = models.CharField(max_length=255)
     task_model = models.CharField(max_length=255, blank=True, default="")
-    task_id = models.IntegerField()
+    task_id = models.UUIDField(null=True, blank=True, db_index=True)
     task_created_by_id = models.IntegerField(null=True, blank=True)
     celery_task_id = models.CharField(max_length=255, blank=True, default="", db_index=True)
     status = models.CharField(max_length=8, choices=EXEC_STATUS, default="running")

@@ -1,4 +1,4 @@
-from .base import BaseSchedulerTask
+from .base import BaseSchedulerTask, EmailNotification
 from .execution import ExecutionRecord
 
-__all__ = ["BaseSchedulerTask", "ExecutionRecord"]
+__all__ = ["BaseSchedulerTask", "EmailNotification", "ExecutionRecord"]
