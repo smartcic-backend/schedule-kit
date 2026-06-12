@@ -84,7 +84,7 @@ class MyTaskSerializer(BaseSchedulerSerializer, EmailNotificationSerializer):
 | `next_run_time` | 下次執行時間（停用或無排程時為 null） |
 | `last_run_at` | 上次執行時間（唯讀，來自 `PeriodicTask`） |
 | `total_run_count` | 總執行次數（唯讀，來自 `PeriodicTask`） |
-| `created_by` | 未指定時預設帶入當前請求的使用者 |
+| `created_by` | 唯讀，由 view 的 `perform_create` 透過 `serializer.save(created_by=request.user)` 注入；client 無法直接設定或修改 |
 | `timezone` | 未指定時預設帶入請求使用者的時區設定（`user.timezone`）；使用者未設定或無 request context 時為 `UTC`。值須為合法的 IANA 時區名稱 |
 
 ---

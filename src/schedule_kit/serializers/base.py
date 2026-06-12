@@ -1,6 +1,5 @@
 from zoneinfo import ZoneInfo
 
-from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from ..utils.cron import is_every, parse_every_seconds, validate_crontab
 from ..utils.schedule import get_next_run_time
@@ -33,12 +32,7 @@ class CurrentUserTimezoneDefault:
 
 class BaseSchedulerSerializer(serializers.ModelSerializer):
     next_run_time = serializers.SerializerMethodField()
-    created_by = serializers.PrimaryKeyRelatedField(
-        queryset=get_user_model().objects.all(),
-        default=CurrentUserDefault(),
-        allow_null=True,
-        required=False,
-    )
+    created_by = serializers.PrimaryKeyRelatedField(read_only=True)
     timezone = serializers.CharField(
         max_length=64,
         default=CurrentUserTimezoneDefault(),

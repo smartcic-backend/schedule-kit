@@ -82,24 +82,25 @@ class TestNextRunTime:
 
 @pytest.mark.django_db
 class TestCreatedBy:
-    def test_default_none_without_request(self):
-        s = _s(title="CreatedBy NoRequest")
+    def test_none_when_not_provided_by_system(self):
+        s = _s(title="CreatedBy NoSystem")
         assert s.is_valid(), s.errors
         task = s.save()
         assert task.created_by is None
 
-    def test_default_from_request_user(self, user):
-        class FakeRequest:
-            def __init__(self, u):
-                self.user = u
+    def test_set_by_system_via_save(self, user):
+        s = _s(title="CreatedBy System")
+        assert s.is_valid(), s.errors
+        task = s.save(created_by=user)
+        assert task.created_by == user
 
+    def test_client_input_ignored(self, user):
         s = AlertRuleTaskSerializer(
-            data={**BASE, "title": "CreatedBy FromRequest"},
-            context={"request": FakeRequest(user)},
+            data={**BASE, "title": "CreatedBy ClientIgnored", "created_by": user.pk},
         )
         assert s.is_valid(), s.errors
         task = s.save()
-        assert task.created_by == user
+        assert task.created_by is None
 
 
 @pytest.mark.django_db
