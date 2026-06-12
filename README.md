@@ -229,9 +229,13 @@ Worker 檢查涵蓋連線、統計、活躍/已排程/已註冊任務；Beat 檢
 
 ---
 
+## 接入新專案
+
+逐步整合指引（INSTALLED_APPS、必填設定、model / serializer / task / view 各層接入方式、常見錯誤）見 [`mds/integration.md`](./mds/integration.md)。
+
 ## 範例
 
-完整的接入方式見 [`example/`](./example/) 目錄。
+完整可運行的接入範例見 [`example/`](./example/) 目錄。
 
 ---
 

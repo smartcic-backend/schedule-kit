@@ -36,6 +36,11 @@ class BaseSchedulerSerializer(serializers.ModelSerializer):
     timezone = serializers.CharField(
         max_length=64,
         default=CurrentUserTimezoneDefault(),
+        help_text=(
+            "IANA 時區名稱（例如 Asia/Taipei、UTC）。"
+            "未指定時預設帶入請求使用者的時區設定（user.timezone）；"
+            "使用者未設定或無 request context 時為 UTC。"
+        ),
     )
     last_run_at = serializers.DateTimeField(
         read_only=True,
