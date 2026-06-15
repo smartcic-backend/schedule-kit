@@ -4,10 +4,17 @@ Django Celery 排程管理套件，標準化各微服務的排程建立、同步
 
 ## 安裝
 
-**從 GitHub 安裝：**
+**從 GitHub 安裝（釘定版本）：**
 
 ```bash
-pip install git+https://github.com/smartcic-backend/schedule-kit.git
+pip install "schedule-kit @ git+https://github.com/smartcic-backend/schedule-kit.git@v0.1.1"
+```
+
+或在 `pyproject.toml` 裡加入：
+
+```toml
+[tool.poetry.dependencies]
+schedule-kit = {git = "https://github.com/smartcic-backend/schedule-kit.git", tag = "v0.1.1"}
 ```
 
 ## 依賴
