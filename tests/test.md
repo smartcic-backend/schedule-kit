@@ -21,7 +21,7 @@
 
 ```json
 {
-  "title": "CPU 監控 - production",
+  "name": "CPU 監控 - production",
   "execution_cycle": "*/5 * * * *",
   "cpu_threshold": 80,
   "target_host": "prod-server-01",
@@ -66,10 +66,10 @@
 - [ ] 回傳 `200`
 - [ ] Admin → Periodic tasks 該筆 crontab 已更新為 `0 * * * *`
 
-**停用排程**：PATCH `{ "status": "disabled" }`
+**停用排程**：PATCH `{ "enable": false }`
 - [ ] Admin → Periodic tasks 該筆 enabled = false（Beat 不再 dispatch）
 
-**重新啟用**：PATCH `{ "status": "active" }`
+**重新啟用**：PATCH `{ "enable": true }`
 - [ ] Admin → Periodic tasks 該筆 enabled = true
 - [ ] `next_run_time` 從 null 變回有值
 

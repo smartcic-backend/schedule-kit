@@ -17,14 +17,14 @@ def sync_to_periodic_task(instance, created: bool) -> None:
         instance.execution_cycle, instance.timezone
     )
     expire = _calc_expire(instance.execution_cycle)
-    enabled = instance.status == "active"
+    enabled = instance.enable
     # default=str：get_task_args() 回傳 UUID 物件時序列化為字串
     args = json.dumps(instance.get_task_args(), default=str)
     now = timezone.now()
 
     if instance.task_id is None:
         kwargs = {
-            "name": instance.title,
+            "name": instance.name,
             "task": instance.task_name,
             "queue": get_queue_name(),
             "args": args,
@@ -55,7 +55,7 @@ def sync_to_periodic_task(instance, created: bool) -> None:
         pt.interval = schedule
         pt.crontab = None
 
-    pt.name = instance.title
+    pt.name = instance.name
     pt.task = instance.task_name
     pt.queue = get_queue_name()
     pt.args = args
@@ -87,7 +87,7 @@ def resync_all(model_class) -> dict:
     適用情境：批次匯入後同步、手動修改 Beat 資料表後重新對齊、
     系統異常後的一致性恢復。
 
-    注意：必須先清孤兒再補正——殘留的孤兒可能與 instance.title 同名，
+    注意：必須先清孤兒再補正——殘留的孤兒可能與 instance.name 同名，
     會使重建 PeriodicTask 時違反 name 唯一性約束。
     """
     linked_ids = model_class.objects.exclude(task=None).values_list("task_id", flat=True)

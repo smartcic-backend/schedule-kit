@@ -5,7 +5,7 @@ from example.models import AlertRuleTask, AsyncAlertRuleTask
 
 ALERT_RULES = [
     {
-        "title": "每 5 分鐘 CPU 檢查 (UTC+0)",
+        "name": "每 5 分鐘 CPU 檢查 (UTC+0)",
         "execution_cycle": "*/5 * * * *",
         "timezone": "UTC",
         "cpu_threshold": 80,
@@ -13,7 +13,7 @@ ALERT_RULES = [
         "notify_email": "ops@example.com",
     },
     {
-        "title": "每小時整點 CPU 檢查 (Asia/Taipei)",
+        "name": "每小時整點 CPU 檢查 (Asia/Taipei)",
         "execution_cycle": "0 * * * *",
         "timezone": "Asia/Taipei",
         "cpu_threshold": 90,
@@ -21,7 +21,7 @@ ALERT_RULES = [
         "notify_email": "ops@example.com",
     },
     {
-        "title": "週間工作時段 CPU 檢查 (Asia/Tokyo)",
+        "name": "週間工作時段 CPU 檢查 (Asia/Tokyo)",
         "execution_cycle": "*/30 8-17 * * mon-fri",
         "timezone": "Asia/Tokyo",
         "cpu_threshold": 75,
@@ -29,7 +29,7 @@ ALERT_RULES = [
         "notify_email": "ops@example.com",
     },
     {
-        "title": "每天早上 8 點 CPU 檢查 (America/New_York)",
+        "name": "每天早上 8 點 CPU 檢查 (America/New_York)",
         "execution_cycle": "0 8 * * *",
         "timezone": "America/New_York",
         "cpu_threshold": 70,
@@ -37,7 +37,7 @@ ALERT_RULES = [
         "notify_email": "ops@example.com",
     },
     {
-        "title": "每天下午 2 點 CPU 檢查 (Europe/London)",
+        "name": "每天下午 2 點 CPU 檢查 (Europe/London)",
         "execution_cycle": "0 14 * * *",
         "timezone": "Europe/London",
         "cpu_threshold": 85,
@@ -48,7 +48,7 @@ ALERT_RULES = [
 
 ASYNC_ALERT_RULES = [
     {
-        "title": "每 30 秒 CPU 檢查（非同步 UTC+0）",
+        "name": "每 30 秒 CPU 檢查（非同步 UTC+0）",
         "execution_cycle": "@every 30s",
         "timezone": "UTC",
         "cpu_threshold": 85,
@@ -56,7 +56,7 @@ ASYNC_ALERT_RULES = [
         "notify_email": "ops@example.com",
     },
     {
-        "title": "每 10 分鐘 CPU 檢查（非同步 UTC+8 台北）",
+        "name": "每 10 分鐘 CPU 檢查（非同步 UTC+8 台北）",
         "execution_cycle": "@every 10m",
         "timezone": "Asia/Taipei",
         "cpu_threshold": 95,
@@ -64,7 +64,7 @@ ASYNC_ALERT_RULES = [
         "notify_email": "ops@example.com",
     },
     {
-        "title": "每小時 CPU 檢查（非同步 UTC+8 上海）",
+        "name": "每小時 CPU 檢查（非同步 UTC+8 上海）",
         "execution_cycle": "@every 1h",
         "timezone": "Asia/Shanghai",
         "cpu_threshold": 88,
@@ -85,7 +85,7 @@ class Command(BaseCommand):
 
         for data in ALERT_RULES:
             _, is_new = AlertRuleTask.objects.get_or_create(
-                title=data["title"],
+                name=data["name"],
                 defaults={**data, "created_by": owner},
             )
             if is_new:
@@ -95,7 +95,7 @@ class Command(BaseCommand):
 
         for data in ASYNC_ALERT_RULES:
             _, is_new = AsyncAlertRuleTask.objects.get_or_create(
-                title=data["title"],
+                name=data["name"],
                 defaults={**data, "created_by": owner},
             )
             if is_new:

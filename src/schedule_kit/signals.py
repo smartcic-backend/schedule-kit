@@ -16,13 +16,13 @@ def _pre_save_handler(sender, instance, **kwargs):
         try:
             old = sender.objects.get(pk=instance.pk)
             instance._old_execution_cycle = old.execution_cycle
-            instance._old_status = old.status
+            instance._old_enable = old.enable
         except sender.DoesNotExist:
             instance._old_execution_cycle = None
-            instance._old_status = None
+            instance._old_enable = None
     else:
         instance._old_execution_cycle = None
-        instance._old_status = None
+        instance._old_enable = None
 
 
 def _post_save_handler(sender, instance, created, **kwargs):

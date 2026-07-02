@@ -10,7 +10,7 @@ def U(n: int) -> uuid.UUID:
     return uuid.UUID(int=n)
 
 BASE = {
-    "title": "View Test Alert",
+    "name": "View Test Alert",
     "execution_cycle": "*/5 * * * *",
     "cpu_threshold": 80,
     "target_host": "server-01",
@@ -44,7 +44,7 @@ def test_create_invalid_threshold_returns_400(auth_client, alert_rule_payload):
 @pytest.mark.django_db
 def test_create_valid_every(auth_client, alert_rule_payload):
     alert_rule_payload["execution_cycle"] = "@every 1h30m"
-    alert_rule_payload["title"] = "Every Test"
+    alert_rule_payload["name"] = "Every Test"
     r = auth_client.post("/api/alert-rules/", alert_rule_payload, format="json")
     assert r.status_code == 201
 
@@ -66,7 +66,7 @@ def test_disable_schedule(auth_client, alert_rule_payload):
     r = auth_client.post("/api/alert-rules/", alert_rule_payload, format="json")
     task_id = r.data["id"]
     r = auth_client.patch(
-        f"/api/alert-rules/{task_id}/", {"status": "disabled"}, format="json"
+        f"/api/alert-rules/{task_id}/", {"enable": False}, format="json"
     )
     assert r.status_code == 200
 

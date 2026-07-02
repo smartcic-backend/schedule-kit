@@ -4,7 +4,7 @@ from example.models import AlertRuleTask
 from example.serializers import AlertRuleTaskSerializer
 
 BASE = {
-    "title": "Serializer Test Alert",
+    "name": "Serializer Test Alert",
     "execution_cycle": "*/5 * * * *",
     "cpu_threshold": 80,
     "target_host": "server-01",
@@ -51,21 +51,21 @@ class TestExecutionCycleValidation:
 class TestNextRunTime:
     @pytest.mark.django_db
     def test_next_run_time_present_after_save(self):
-        task = AlertRuleTask.objects.create(**{**BASE, "title": "NextRun Crontab"})
+        task = AlertRuleTask.objects.create(**{**BASE, "name": "NextRun Crontab"})
         task.refresh_from_db()
         data = AlertRuleTaskSerializer(task).data
         assert data["next_run_time"] is not None
 
     @pytest.mark.django_db
     def test_next_run_time_is_future(self):
-        task = AlertRuleTask.objects.create(**{**BASE, "title": "NextRun Future"})
+        task = AlertRuleTask.objects.create(**{**BASE, "name": "NextRun Future"})
         task.refresh_from_db()
         data = AlertRuleTaskSerializer(task).data
         assert data["next_run_time"] > timezone.now()
 
     @pytest.mark.django_db
     def test_next_run_time_none_when_disabled(self):
-        task = AlertRuleTask.objects.create(**{**BASE, "title": "NextRun Disabled", "status": "disabled"})
+        task = AlertRuleTask.objects.create(**{**BASE, "name": "NextRun Disabled", "enable": False})
         task.refresh_from_db()
         data = AlertRuleTaskSerializer(task).data
         assert data["next_run_time"] is None
@@ -73,7 +73,7 @@ class TestNextRunTime:
     @pytest.mark.django_db
     def test_next_run_time_interval(self):
         task = AlertRuleTask.objects.create(
-            **{**BASE, "title": "NextRun Interval", "execution_cycle": "@every 1h"}
+            **{**BASE, "name": "NextRun Interval", "execution_cycle": "@every 1h"}
         )
         task.refresh_from_db()
         data = AlertRuleTaskSerializer(task).data
@@ -83,20 +83,20 @@ class TestNextRunTime:
 @pytest.mark.django_db
 class TestCreatedBy:
     def test_none_when_not_provided_by_system(self):
-        s = _s(title="CreatedBy NoSystem")
+        s = _s(name="CreatedBy NoSystem")
         assert s.is_valid(), s.errors
         task = s.save()
         assert task.created_by is None
 
     def test_set_by_system_via_save(self, user):
-        s = _s(title="CreatedBy System")
+        s = _s(name="CreatedBy System")
         assert s.is_valid(), s.errors
         task = s.save(created_by=user)
         assert task.created_by == user
 
     def test_client_input_ignored(self, user):
         s = AlertRuleTaskSerializer(
-            data={**BASE, "title": "CreatedBy ClientIgnored", "created_by": user.pk},
+            data={**BASE, "name": "CreatedBy ClientIgnored", "created_by": user.pk},
         )
         assert s.is_valid(), s.errors
         task = s.save()
@@ -106,14 +106,14 @@ class TestCreatedBy:
 @pytest.mark.django_db
 class TestRunStats:
     def test_last_run_at_and_total_run_count_in_output(self):
-        task = AlertRuleTask.objects.create(**{**BASE, "title": "RunStats"})
+        task = AlertRuleTask.objects.create(**{**BASE, "name": "RunStats"})
         task.refresh_from_db()
         data = AlertRuleTaskSerializer(task).data
         assert "last_run_at" in data
         assert data["total_run_count"] == 0
 
     def test_run_stats_none_when_no_periodic_task(self):
-        task = AlertRuleTask(**{**BASE, "title": "RunStats NoTask"})
+        task = AlertRuleTask(**{**BASE, "name": "RunStats NoTask"})
         data = AlertRuleTaskSerializer(task).data
         assert data["last_run_at"] is None
         assert data["total_run_count"] is None
@@ -122,13 +122,13 @@ class TestRunStats:
 @pytest.mark.django_db
 class TestEmailNotificationValidation:
     def test_enabled_without_recipients_invalid(self):
-        s = _s(title="Email NoRecipients", task_email_enabled=True)
+        s = _s(name="Email NoRecipients", task_email_enabled=True)
         assert not s.is_valid()
         assert "task_email_to" in s.errors
 
     def test_enabled_with_recipients_valid(self):
         s = _s(
-            title="Email WithRecipients",
+            name="Email WithRecipients",
             task_email_enabled=True,
             task_email_to=["a@example.com", "b@example.com"],
         )
@@ -136,7 +136,7 @@ class TestEmailNotificationValidation:
 
     def test_invalid_email_format(self):
         s = _s(
-            title="Email BadFormat",
+            name="Email BadFormat",
             task_email_enabled=True,
             task_email_to=["not-an-email"],
         )
@@ -144,10 +144,10 @@ class TestEmailNotificationValidation:
         assert "task_email_to" in s.errors
 
     def test_disabled_without_recipients_valid(self):
-        assert _s(title="Email Disabled").is_valid()
+        assert _s(name="Email Disabled").is_valid()
 
     def test_partial_update_enable_without_existing_recipients_invalid(self):
-        task = AlertRuleTask.objects.create(**{**BASE, "title": "Email PartialOn"})
+        task = AlertRuleTask.objects.create(**{**BASE, "name": "Email PartialOn"})
         s = AlertRuleTaskSerializer(
             task, data={"task_email_enabled": True}, partial=True
         )
@@ -156,7 +156,7 @@ class TestEmailNotificationValidation:
 
     def test_partial_update_enable_with_existing_recipients_valid(self):
         task = AlertRuleTask.objects.create(
-            **{**BASE, "title": "Email PartialOk", "task_email_to": ["a@example.com"]}
+            **{**BASE, "name": "Email PartialOk", "task_email_to": ["a@example.com"]}
         )
         s = AlertRuleTaskSerializer(
             task, data={"task_email_enabled": True}, partial=True
@@ -171,7 +171,7 @@ class TestTimezoneDefault:
             self.user = u
 
     def test_default_utc_without_request(self):
-        s = _s(title="TZ NoRequest")
+        s = _s(name="TZ NoRequest")
         assert s.is_valid(), s.errors
         task = s.save()
         assert task.timezone == "UTC"
@@ -179,7 +179,7 @@ class TestTimezoneDefault:
     def test_auto_fill_from_user_timezone(self, user):
         user.timezone = "Asia/Taipei"  # 模擬主系統 user 的時區欄位
         s = AlertRuleTaskSerializer(
-            data={**BASE, "title": "TZ FromUser"},
+            data={**BASE, "name": "TZ FromUser"},
             context={"request": self.FakeRequest(user)},
         )
         assert s.is_valid(), s.errors
@@ -188,7 +188,7 @@ class TestTimezoneDefault:
 
     def test_user_without_timezone_falls_back_to_utc(self, user):
         s = AlertRuleTaskSerializer(
-            data={**BASE, "title": "TZ UserNoTz"},
+            data={**BASE, "name": "TZ UserNoTz"},
             context={"request": self.FakeRequest(user)},
         )
         assert s.is_valid(), s.errors
@@ -198,7 +198,7 @@ class TestTimezoneDefault:
     def test_explicit_timezone_overrides_user(self, user):
         user.timezone = "Asia/Taipei"
         s = AlertRuleTaskSerializer(
-            data={**BASE, "title": "TZ Explicit", "timezone": "Asia/Tokyo"},
+            data={**BASE, "name": "TZ Explicit", "timezone": "Asia/Tokyo"},
             context={"request": self.FakeRequest(user)},
         )
         assert s.is_valid(), s.errors
@@ -206,7 +206,7 @@ class TestTimezoneDefault:
         assert task.timezone == "Asia/Tokyo"
 
     def test_invalid_timezone_rejected(self):
-        s = _s(title="TZ Bad", timezone="Not/AZone")
+        s = _s(name="TZ Bad", timezone="Not/AZone")
         assert not s.is_valid()
         assert "timezone" in s.errors
 
