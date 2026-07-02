@@ -45,7 +45,7 @@ def staff_client(staff_user):
 @pytest.fixture
 def alert_rule_payload():
     return {
-        "title": "Test CPU Alert",
+        "name": "Test CPU Alert",
         "execution_cycle": "*/5 * * * *",
         "cpu_threshold": 80,
         "target_host": "test-server",

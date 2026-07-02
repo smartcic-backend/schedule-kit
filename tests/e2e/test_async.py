@@ -37,7 +37,7 @@ def _get_records(session, task_id, status=None):
 def _create_async_rule(session, title):
     r = session.post(
         f"{BASE_URL}/api/async-alert-rules/",
-        json={**ASYNC_TASK_BASE, "title": title},
+        json={**ASYNC_TASK_BASE, "name": title},
     )
     assert r.status_code == 201, r.text
     return r.json()

@@ -91,7 +91,7 @@ class ReportTask(BaseSchedulerTask):
         return [str(self.id)]   # 必須是 str，不能傳 UUID 物件
 ```
 
-`BaseSchedulerTask` 已提供的欄位：`id`（UUID PK）、`title`（唯一名稱）、`status`（`active`/`disabled`）、`execution_cycle`、`timezone`、`task`（FK → PeriodicTask）、`created_by`、`created_at`、`updated_at`。詳見 [`base_model.md`](./base_model.md)。
+`BaseSchedulerTask` 已提供的欄位：`id`（UUID PK）、`name`（唯一名稱）、`enable`（`BooleanField`，預設 `True`）、`execution_cycle`、`timezone`、`task`（FK → PeriodicTask）、`created_by`、`created_at`、`updated_at`。詳見 [`base_model.md`](./base_model.md)。
 
 接著建立 migration：
 

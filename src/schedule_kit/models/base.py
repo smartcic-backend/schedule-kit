@@ -2,10 +2,7 @@ import uuid
 
 from django.conf import settings
 from django.db import models
-from django.utils.translation import gettext_lazy as _
 from django_celery_beat.models import PeriodicTask
-
-STATUS = [("active", _("active")), ("disabled", _("disabled"))]
 
 
 class BaseSchedulerTask(models.Model):
@@ -14,9 +11,9 @@ class BaseSchedulerTask(models.Model):
     # 套件標準：所有排程 model 統一使用 UUID 作為主鍵
     # （識別碼不重複使用，且跨環境 export/import 不會發生 ID 衝突）
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    title = models.CharField(max_length=70, unique=True)
+    name = models.CharField(max_length=70, unique=True)
     description = models.TextField(blank=True, default="")
-    status = models.CharField(max_length=8, choices=STATUS, default="active")
+    enable = models.BooleanField(default=True)
     execution_cycle = models.CharField(max_length=128)
     timezone = models.CharField(
         max_length=64,
@@ -48,7 +45,7 @@ class BaseSchedulerTask(models.Model):
         raise NotImplementedError
 
     def __str__(self):
-        return self.title
+        return self.name
 
 
 class EmailNotification(models.Model):

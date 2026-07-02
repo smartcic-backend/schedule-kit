@@ -415,7 +415,7 @@ class Command(BaseCommand):
         except Exception as e:
             return f"ID={task_id} (查詢失敗: {e})"
 
-        details = [f"標題='{instance.title}'"]
+        details = [f"標題='{instance.name}'"]
         if instance.description:
             desc = (
                 instance.description[:50] + "..."
@@ -423,7 +423,7 @@ class Command(BaseCommand):
                 else instance.description
             )
             details.append(f"描述='{desc}'")
-        details.append(f"狀態={instance.status}")
+        details.append(f"狀態={instance.enable}")
         return ", ".join(details)
 
     def _get_task_signature(self, task_name):

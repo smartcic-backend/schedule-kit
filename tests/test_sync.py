@@ -4,7 +4,7 @@ from example.models import AlertRuleTask
 from schedule_kit.services import resync_all
 
 BASE = {
-    "title": "Sync Test",
+    "name": "Sync Test",
     "execution_cycle": "*/5 * * * *",
     "cpu_threshold": 80,
     "target_host": "server-01",
@@ -37,7 +37,7 @@ def test_crontab_schedule():
 
 @pytest.mark.django_db
 def test_interval_schedule_on_every():
-    task = make(title="Every Test", execution_cycle="@every 30s")
+    task = make(name="Every Test", execution_cycle="@every 30s")
     task.refresh_from_db()
     pt = task.task
     assert pt.interval is not None
@@ -48,7 +48,7 @@ def test_interval_schedule_on_every():
 @pytest.mark.django_db
 def test_disable_sets_enabled_false():
     task = make()
-    task.status = "disabled"
+    task.enable = False
     task.save()
     task.refresh_from_db()
     assert task.task.enabled is False
@@ -68,7 +68,7 @@ def test_cycle_change_updates_schedule():
 
 @pytest.mark.django_db
 def test_periodic_task_deleted_with_model():
-    task = make(title="Delete Test")
+    task = make(name="Delete Test")
     task.refresh_from_db()
     pt_id = task.task_id
     task.delete()
@@ -77,28 +77,28 @@ def test_periodic_task_deleted_with_model():
 
 @pytest.mark.django_db
 def test_queue_from_settings():
-    task = make(title="Queue Test")
+    task = make(name="Queue Test")
     task.refresh_from_db()
     assert task.task.queue == "test"  # from tests/settings.py CELERY_SCHEDULER
 
 
 @pytest.mark.django_db
 def test_crontab_uses_default_utc_timezone():
-    task = make(title="Timezone Default Test")
+    task = make(name="Timezone Default Test")
     task.refresh_from_db()
     assert str(task.task.crontab.timezone) == "UTC"
 
 
 @pytest.mark.django_db
 def test_crontab_uses_instance_timezone():
-    task = make(title="Timezone TW Test", timezone="Asia/Taipei")
+    task = make(name="Timezone TW Test", timezone="Asia/Taipei")
     task.refresh_from_db()
     assert str(task.task.crontab.timezone) == "Asia/Taipei"
 
 
 @pytest.mark.django_db
 def test_resync_all_restores_externally_disabled_task():
-    task = make(title="Resync Restore")
+    task = make(name="Resync Restore")
     task.refresh_from_db()
     # 模擬外部直接停用 PeriodicTask（例如 worker stop API）
     PeriodicTask.objects.filter(pk=task.task_id).update(enabled=False)
@@ -140,7 +140,7 @@ def test_resync_all_keeps_unrelated_periodic_tasks():
 def test_resync_all_rebuilds_detached_reference():
     # instance 的 task 參照被清空、舊 PeriodicTask 以同名殘留：
     # 必須先移除孤兒再重建，否則撞 name 唯一性約束
-    task = make(title="Resync Detached")
+    task = make(name="Resync Detached")
     task.refresh_from_db()
     old_pt_id = task.task_id
     AlertRuleTask.objects.filter(pk=task.pk).update(task=None)
@@ -156,13 +156,13 @@ def test_resync_all_rebuilds_detached_reference():
 
 @pytest.mark.django_db
 def test_reenable_sets_enabled_true():
-    task = make(title="Reenable Test")
-    task.status = "disabled"
+    task = make(name="Reenable Test")
+    task.enable = False
     task.save()
     task.refresh_from_db()
     assert task.task.enabled is False
 
-    task.status = "active"
+    task.enable = True
     task.save()
     task.refresh_from_db()
     assert task.task.enabled is True

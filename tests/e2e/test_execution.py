@@ -7,7 +7,7 @@ import pytest
 from .conftest import BASE_URL, wait_until
 
 FAST_TASK = {
-    "title": "E2E Fast Task",
+    "name": "E2E Fast Task",
     "execution_cycle": "@every 10s",
     "cpu_threshold": 50,
     "target_host": "e2e-exec-server",

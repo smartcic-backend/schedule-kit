@@ -37,9 +37,9 @@ schedule-kit = {git = "https://github.com/smartcic-backend/schedule-kit.git", ta
 | 欄位 | 型別 | 說明 |
 |------|------|------|
 | `id` | `UUIDField` | 主鍵。套件標準：所有排程 model 統一使用 UUID（識別碼不重複使用，跨環境匯出入不會發生 ID 衝突） |
-| `title` | `CharField(70)` | 排程名稱，全域唯一 |
+| `name` | `CharField(70)` | 排程名稱，全域唯一 |
 | `description` | `TextField` | 排程描述 |
-| `status` | `CharField` | `active` / `disabled` |
+| `enable` | `BooleanField` | 是否啟用排程，預設 `True` |
 | `execution_cycle` | `CharField(128)` | 排程字串（見下方格式說明） |
 | `timezone` | `CharField(64)` | 排程時區，預設 `UTC` |
 | `task` | `OneToOneField` | 關聯的 `PeriodicTask`（套件自動維護） |
@@ -220,7 +220,7 @@ python manage.py trigger_task --args '["a1b2c3d4-0000-0000-0000-000000000001"]' 
 ```
 
 `--list-all` 的「參數詳情」會把 args 第一個值當作排程 model 的 PK，自動從
-`BaseSchedulerTask` 子類（依 `task_name` 對應）查出該筆排程的標題與狀態。
+`BaseSchedulerTask` 子類（依 `task_name` 對應）查出該筆排程的名稱與啟用狀態。
 
 #### check_celery_status — 檢查 Worker / Beat 健康狀態
 

@@ -8,7 +8,7 @@ BASE_URL = os.getenv("E2E_BASE_URL", "http://localhost:8000")
 E2E_USER = ("e2e", "e2e-secret")
 
 ALERT_RULE_BASE = {
-    "title": "E2E CPU Alert",
+    "name": "E2E CPU Alert",
     "execution_cycle": "*/5 * * * *",
     "cpu_threshold": 80,
     "target_host": "e2e-server",
