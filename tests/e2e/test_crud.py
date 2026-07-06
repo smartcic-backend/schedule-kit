@@ -19,7 +19,7 @@ def test_create_rule(session, alert_rule_payload):
     assert r.status_code == 201
     data = r.json()
     assert data["name"] == alert_rule_payload["name"]
-    assert data["enable"] is True
+    assert data["enabled"] is True
     assert data["next_run_time"] is not None
     # 清理
     session.delete(f"{BASE_URL}/api/alert-rules/{data['id']}/")
@@ -57,11 +57,11 @@ def test_update_threshold(session, created_rule):
 def test_disable_rule(session, created_rule):
     r = session.patch(
         f"{BASE_URL}/api/alert-rules/{created_rule['id']}/",
-        json={"enable": False},
+        json={"enabled": False},
     )
     assert r.status_code == 200
     data = r.json()
-    assert data["enable"] is False
+    assert data["enabled"] is False
     assert data["next_run_time"] is None
 
 

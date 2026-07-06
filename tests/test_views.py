@@ -66,7 +66,7 @@ def test_disable_schedule(auth_client, alert_rule_payload):
     r = auth_client.post("/api/alert-rules/", alert_rule_payload, format="json")
     task_id = r.data["id"]
     r = auth_client.patch(
-        f"/api/alert-rules/{task_id}/", {"enable": False}, format="json"
+        f"/api/alert-rules/{task_id}/", {"enabled": False}, format="json"
     )
     assert r.status_code == 200
 

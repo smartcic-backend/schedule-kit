@@ -423,7 +423,7 @@ class Command(BaseCommand):
                 else instance.description
             )
             details.append(f"描述='{desc}'")
-        details.append(f"狀態={instance.enable}")
+        details.append(f"狀態={instance.enabled}")
         return ", ".join(details)
 
     def _get_task_signature(self, task_name):

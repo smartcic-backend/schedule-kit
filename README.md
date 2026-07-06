@@ -39,7 +39,7 @@ schedule-kit = {git = "https://github.com/smartcic-backend/schedule-kit.git", ta
 | `id` | `UUIDField` | 主鍵。套件標準：所有排程 model 統一使用 UUID（識別碼不重複使用，跨環境匯出入不會發生 ID 衝突） |
 | `name` | `CharField(70)` | 排程名稱，全域唯一 |
 | `description` | `TextField` | 排程描述 |
-| `enable` | `BooleanField` | 是否啟用排程，預設 `True` |
+| `enabled` | `BooleanField` | 是否啟用排程，預設 `True` |
 | `execution_cycle` | `CharField(128)` | 排程字串（見下方格式說明） |
 | `timezone` | `CharField(64)` | 排程時區，預設 `UTC` |
 | `task` | `OneToOneField` | 關聯的 `PeriodicTask`（套件自動維護） |

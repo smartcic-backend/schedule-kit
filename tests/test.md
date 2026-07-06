@@ -66,10 +66,10 @@
 - [ ] 回傳 `200`
 - [ ] Admin → Periodic tasks 該筆 crontab 已更新為 `0 * * * *`
 
-**停用排程**：PATCH `{ "enable": false }`
+**停用排程**：PATCH `{ "enabled": false }`
 - [ ] Admin → Periodic tasks 該筆 enabled = false（Beat 不再 dispatch）
 
-**重新啟用**：PATCH `{ "enable": true }`
+**重新啟用**：PATCH `{ "enabled": true }`
 - [ ] Admin → Periodic tasks 該筆 enabled = true
 - [ ] `next_run_time` 從 null 變回有值
 

@@ -67,7 +67,7 @@ class TestNextRunTime:
 
     @pytest.mark.django_db
     def test_next_run_time_none_when_disabled(self):
-        task = AlertRuleTask.objects.create(**{**BASE, "name": "NextRun Disabled", "enable": False})
+        task = AlertRuleTask.objects.create(**{**BASE, "name": "NextRun Disabled", "enabled": False})
         task.refresh_from_db()
         data = AlertRuleTaskSerializer(task).data
         assert data["next_run_time"] is None

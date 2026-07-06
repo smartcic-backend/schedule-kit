@@ -48,7 +48,7 @@ def test_interval_schedule_on_every():
 @pytest.mark.django_db
 def test_disable_sets_enabled_false():
     task = make()
-    task.enable = False
+    task.enabled = False
     task.save()
     task.refresh_from_db()
     assert task.task.enabled is False
@@ -157,12 +157,12 @@ def test_resync_all_rebuilds_detached_reference():
 @pytest.mark.django_db
 def test_reenable_sets_enabled_true():
     task = make(name="Reenable Test")
-    task.enable = False
+    task.enabled = False
     task.save()
     task.refresh_from_db()
     assert task.task.enabled is False
 
-    task.enable = True
+    task.enabled = True
     task.save()
     task.refresh_from_db()
     assert task.task.enabled is True

@@ -12,7 +12,7 @@
 | `id` | `UUIDField(primary_key=True, default=uuid4)` | 主鍵。統一使用 UUID，跨環境匯出入不會發生 ID 衝突 |
 | `name` | `CharField(max_length=70, unique=True)` | 排程名稱，全域唯一 |
 | `description` | `TextField(blank=True, default="")` | 排程描述 |
-| `enable` | `BooleanField(default=True)` | 是否啟用排程；`True` 啟用、`False` 停用 |
+| `enabled` | `BooleanField(default=True)` | 是否啟用排程；`True` 啟用、`False` 停用 |
 | `execution_cycle` | `CharField(max_length=128)` | 排程字串，必填。接受 5 欄位 crontab（`*/5 * * * *`）或 `@every <duration>`（`@every 30m`） |
 | `timezone` | `CharField(max_length=64, default="UTC")` | 排程時區，須為合法的 IANA 時區名稱 |
 | `task` | `OneToOneField(PeriodicTask, null=True, blank=True, on_delete=CASCADE, related_name="%(class)s")` | 對應的 django-celery-beat PeriodicTask，由套件 signal 自動維護 |
@@ -74,14 +74,14 @@ class AlertRuleTask(BaseSchedulerTask):
 
 ---
 
-## enable 與 PeriodicTask 的關係
+## enabled 與 PeriodicTask 的關係
 
 ```
-model.enable = True   →  PeriodicTask.enabled = True   → Beat 正常 dispatch
-model.enable = False  →  PeriodicTask.enabled = False  → Beat 跳過
+model.enabled = True   →  PeriodicTask.enabled = True   → Beat 正常 dispatch
+model.enabled = False  →  PeriodicTask.enabled = False  → Beat 跳過
 ```
 
-同步由套件 signal 自動處理，服務層只需改 `enable` 欄位。
+同步由套件 signal 自動處理，服務層只需改 `enabled` 欄位。
 
 ---
 

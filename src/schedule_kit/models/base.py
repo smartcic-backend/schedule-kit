@@ -13,7 +13,7 @@ class BaseSchedulerTask(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=70, unique=True)
     description = models.TextField(blank=True, default="")
-    enable = models.BooleanField(default=True)
+    enabled = models.BooleanField(default=True)
     execution_cycle = models.CharField(max_length=128)
     timezone = models.CharField(
         max_length=64,

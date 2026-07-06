@@ -17,7 +17,7 @@ def sync_to_periodic_task(instance, created: bool) -> None:
         instance.execution_cycle, instance.timezone
     )
     expire = _calc_expire(instance.execution_cycle)
-    enabled = instance.enable
+    enabled = instance.enabled
     # default=str：get_task_args() 回傳 UUID 物件時序列化為字串
     args = json.dumps(instance.get_task_args(), default=str)
     now = timezone.now()
