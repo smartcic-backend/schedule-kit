@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 import pytest
 from django.utils import timezone
 from example.models import AlertRuleTask
@@ -78,6 +80,33 @@ class TestNextRunTime:
         task.refresh_from_db()
         data = AlertRuleTaskSerializer(task).data
         assert data["next_run_time"] is not None
+
+    @pytest.mark.django_db
+    def test_next_run_time_future_when_last_run_at_stale_crontab(self):
+        """Beat 停擺數日後 last_run_at 過期，next_run_time 仍須落在未來。"""
+        task = AlertRuleTask.objects.create(**{**BASE, "title": "NextRun Stale Crontab"})
+        task.refresh_from_db()
+        pt = task.task
+        pt.last_run_at = timezone.now() - timedelta(days=3)
+        pt.save(update_fields=["last_run_at"])
+
+        task.refresh_from_db()
+        data = AlertRuleTaskSerializer(task).data
+        assert data["next_run_time"] > timezone.now()
+
+    @pytest.mark.django_db
+    def test_next_run_time_future_when_last_run_at_stale_interval(self):
+        task = AlertRuleTask.objects.create(
+            **{**BASE, "title": "NextRun Stale Interval", "execution_cycle": "@every 1h"}
+        )
+        task.refresh_from_db()
+        pt = task.task
+        pt.last_run_at = timezone.now() - timedelta(days=3)
+        pt.save(update_fields=["last_run_at"])
+
+        task.refresh_from_db()
+        data = AlertRuleTaskSerializer(task).data
+        assert data["next_run_time"] > timezone.now()
 
 
 @pytest.mark.django_db
