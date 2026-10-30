@@ -11,6 +11,8 @@
 # settings.py
 CELERY_SCHEDULER = {
     "QUEUE_NAME":                "myservice",
+    "WRITE_MAIN_EXECUTION_RECORDS": False,
+    "EXECUTION_SOURCE": "myservice",
     "SAFETY_MARGIN_SECONDS":     30,
     "MIN_EXPIRE_SECONDS":        60,
     "MAX_EXPIRE_SECONDS":        86400,
@@ -28,7 +30,7 @@ CELERY_SCHEDULER = {
 | `SAFETY_MARGIN_SECONDS` | `30` | expire 計算的安全邊際（秒），加到估算的執行週期上 |
 | `MIN_EXPIRE_SECONDS` | `60` | expire 下限，避免高頻任務 expire 過短 |
 | `MAX_EXPIRE_SECONDS` | `86400` | expire 上限（1 天），避免低頻任務 expire 過長 |
-| `TASK_RECORD_KEEP_MAX_COUNT` | `1000` | 同一 `task_id` 最多保留幾筆 ExecutionRecord |
+| `TASK_RECORD_KEEP_MAX_COUNT` | `1000` | 同一 `task_model` + `task_id` 最多保留幾筆 ExecutionRecord |
 | `TASK_RECORD_KEEP_MAX_DAYS` | `30` | ExecutionRecord 最多保留幾天 |
 | `PENDING_TIMEOUT_HOURS` | `24` | `pending` / `running` 狀態超過幾小時，maintenance task 自動標為 `fail` |
 
@@ -50,8 +52,8 @@ expire = clamp(estimated_interval - SAFETY_MARGIN_SECONDS,
 
 兩個條件獨立運作，任一滿足就刪除：
 
-- **天數**：`start_time` 超過 `TASK_RECORD_KEEP_MAX_DAYS` 天的紀錄
-- **筆數**：同一 `task_id` 超過 `TASK_RECORD_KEEP_MAX_COUNT` 筆時，刪最舊的
+- **天數**：`occurred_at` 超過 `TASK_RECORD_KEEP_MAX_DAYS` 天的紀錄
+- **筆數**：同一 `task_model` + `task_id` 超過 `TASK_RECORD_KEEP_MAX_COUNT` 筆時，刪最舊的
 
 清理由套件的 maintenance task 執行（`src/schedule_kit/tasks/maintenance.py`），不需各服務自行實作。
 
@@ -82,3 +84,7 @@ app.autodiscover_tasks()
 ```
 
 > `CELERY_SCHEDULER` 是套件的 namespace，與 Celery 原生設定（`CELERY_BROKER_URL` 等）分開，互不干擾。
+
+`WRITE_MAIN_EXECUTION_RECORDS` 預設 `False`。新子專案與既有主專案共寫時設為 `True`；前提與限制見 [接入指引](integration.md#寫入主專案執行紀錄020)。
+
+`EXECUTION_SOURCE` 在共寫啟用時必填，且須跨子專案唯一、部署間固定。模型識別使用 `來源:app_label.ModelName`。`main_synced_at` 是內部同步標記，未同步終態由 maintenance 重試且不會被本機保留政策刪除。maintenance 排程範例見接入指引。

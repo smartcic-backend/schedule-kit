@@ -18,7 +18,7 @@ def sync_to_periodic_task(instance, created: bool) -> None:
     )
     expire = _calc_expire(instance.execution_cycle)
     enabled = instance.status == "active"
-    # default=str：get_task_args() 回傳 UUID 物件時序列化為字串
+    # 排程參數使用整數 id；default=str 保留其他可序列化業務參數的相容性。
     args = json.dumps(instance.get_task_args(), default=str)
     now = timezone.now()
 
@@ -74,7 +74,7 @@ def delete_periodic_task(instance) -> None:
     if instance.task_id is not None:
         try:
             instance.task.delete()
-        except Exception:
+        except PeriodicTask.DoesNotExist:
             pass
 
 
@@ -90,7 +90,9 @@ def resync_all(model_class) -> dict:
     注意：必須先清孤兒再補正——殘留的孤兒可能與 instance.title 同名，
     會使重建 PeriodicTask 時違反 name 唯一性約束。
     """
-    linked_ids = model_class.objects.exclude(task=None).values_list("task_id", flat=True)
+    linked_ids = model_class.objects.exclude(task=None).values_list(
+        "task_id", flat=True
+    )
     orphans = PeriodicTask.objects.filter(task=model_class.task_name).exclude(
         id__in=linked_ids
     )
@@ -100,9 +102,10 @@ def resync_all(model_class) -> dict:
     synced = 0
     for instance in model_class.objects.all():
         # 資料庫還原等情況可能留下指向已不存在 PeriodicTask 的參照，先清掉再重建
-        if instance.task_id is not None and not PeriodicTask.objects.filter(
-            pk=instance.task_id
-        ).exists():
+        if (
+            instance.task_id is not None
+            and not PeriodicTask.objects.filter(pk=instance.task_id).exists()
+        ):
             model_class.objects.filter(pk=instance.pk).update(task=None)
             instance.task = None
         sync_to_periodic_task(instance, created=False)

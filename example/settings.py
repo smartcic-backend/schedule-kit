@@ -18,11 +18,10 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-
     "rest_framework",
     "django_filters",
-    "django_celery_beat",   # PeriodicTask / CrontabSchedule / IntervalSchedule 的 model
-    "schedule_kit",           # AppConfig.ready() 自動掛載 signal、讀取 CELERY_SCHEDULER
+    "django_celery_beat",  # PeriodicTask / CrontabSchedule / IntervalSchedule 的 model
+    "schedule_kit",  # AppConfig.ready() 自動掛載 signal、讀取 CELERY_SCHEDULER
     "example",
 ]
 
@@ -59,6 +58,7 @@ _db_url = os.environ.get("DATABASE_URL")
 
 if _db_url:
     import re
+
     _m = re.match(r"postgres://([^:]+):([^@]+)@([^:]+):(\d+)/(.+)", _db_url)
     if not _m:
         raise ValueError(f"DATABASE_URL 格式無法解析：{_db_url}")
@@ -97,7 +97,9 @@ REST_FRAMEWORK = {
 }
 
 # ── Celery 原生設定（各服務自備，套件不介入）────────────────────────────────
-CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "amqp://guest:guest@localhost:5672/")
+CELERY_BROKER_URL = os.environ.get(
+    "CELERY_BROKER_URL", "amqp://guest:guest@localhost:5672/"
+)
 
 # DatabaseScheduler 讓 Beat 從 DB 讀排程，套件寫進 PeriodicTask 後即時生效，不需重啟 Beat
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
@@ -108,17 +110,25 @@ CELERY_TIMEZONE = "Asia/Taipei"
 CELERY_SCHEDULER = {
     # Worker 監聽的 queue 名稱，套件同步 PeriodicTask 時會帶入
     "QUEUE_NAME": "myservice",
-
+    "WRITE_MAIN_EXECUTION_RECORDS": False,  # 主專案共用表就緒後才啟用
+    "EXECUTION_SOURCE": "myservice",  # 請改成跨專案唯一、部署間固定的名稱
     # 排程時區，建議與 CELERY_TIMEZONE 一致
     "TIMEZONE": "Asia/Taipei",
-
     # expire_seconds 動態計算參數（防止任務在 queue 裡積壓過久才跑）
     # expire = 排程週期 - SAFETY_MARGIN_SECONDS，夾在 MIN / MAX 之間
     "SAFETY_MARGIN_SECONDS": 30,
     "MIN_EXPIRE_SECONDS": 60,
     "MAX_EXPIRE_SECONDS": 86400,
-
     # ExecutionRecord 保留上限（兩個條件獨立運作，先到先刪）
     "TASK_RECORD_KEEP_MAX_COUNT": 1000,  # 同一 task_id 最多保留幾筆
-    "TASK_RECORD_KEEP_MAX_DAYS": 30,     # 超過幾天的紀錄刪除
+    "TASK_RECORD_KEEP_MAX_DAYS": 30,  # 超過幾天的紀錄刪除
+}
+
+
+CELERY_BEAT_SCHEDULE = {
+    "schedule-kit-maintenance": {
+        "task": "schedule_kit.cleanup_execution_records",
+        "schedule": 300.0,
+        "options": {"queue": "myservice"},
+    },
 }
