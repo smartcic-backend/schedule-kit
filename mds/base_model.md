@@ -9,7 +9,7 @@
 
 | 欄位 | 型別 | 說明 |
 |------|------|------|
-| `id` | `UUIDField(primary_key=True, default=uuid4)` | 主鍵。統一使用 UUID，跨環境匯出入不會發生 ID 衝突 |
+| `id` | `AutoField(primary_key=True)` | 自動遞增整數主鍵；不同模型需連同模型名稱識別 |
 | `title` | `CharField(max_length=70, unique=True)` | 排程名稱，全域唯一 |
 | `description` | `TextField(blank=True, default="")` | 排程描述 |
 | `status` | `CharField(choices=STATUS, default="active")` | `active` / `disabled` |

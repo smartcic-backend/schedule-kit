@@ -12,7 +12,7 @@ EXEC_STATUS = [
 class AbstractExecutionRecord(models.Model):
     task_title = models.CharField(max_length=255, blank=True, default="")
     task_function = models.CharField(max_length=255, blank=True, default="")
-    task_id = models.UUIDField(null=True, blank=True, db_index=True)
+    task_id = models.IntegerField(null=True, blank=True, db_index=True)
     occurred_at = models.DateTimeField()
 
     class Meta:
@@ -22,10 +22,15 @@ class AbstractExecutionRecord(models.Model):
 class ExecutionRecord(AbstractExecutionRecord):
     task_model = models.CharField(max_length=255, blank=True, default="")
     task_created_by_id = models.IntegerField(null=True, blank=True)
-    celery_task_id = models.CharField(max_length=255, blank=True, default="", db_index=True)
+    celery_task_id = models.CharField(
+        max_length=255, blank=True, default="", db_index=True
+    )
     status = models.CharField(max_length=8, choices=EXEC_STATUS, default="running")
     end_time = models.DateTimeField(null=True, blank=True)
     message = models.TextField(blank=True, default="")
+    main_synced_at = models.DateTimeField(
+        null=True, blank=True, editable=False, db_index=True
+    )
     periodic_task = models.ForeignKey(
         PeriodicTask,
         null=True,

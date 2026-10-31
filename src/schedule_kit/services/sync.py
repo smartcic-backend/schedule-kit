@@ -19,7 +19,7 @@ def sync_to_periodic_task(instance, created: bool) -> None:
     )
     expire = _calc_expire(instance.execution_cycle)
     enabled = instance.status == "active"
-    # default=str：get_task_args() 回傳 UUID 物件時序列化為字串
+    # 排程參數使用整數 id；default=str 保留其他可序列化業務參數的相容性。
     args = json.dumps(instance.get_task_args(), default=str)
     now = timezone.now()
 
@@ -75,7 +75,7 @@ def delete_periodic_task(instance) -> None:
     if instance.task_id is not None:
         try:
             instance.task.delete()
-        except Exception:
+        except PeriodicTask.DoesNotExist:
             pass
 
 
@@ -86,13 +86,22 @@ def get_referenced_periodic_task_ids(ignore_tables=()) -> set:
     多個專案共用同一個資料庫時，其他專案的排程表不在 INSTALLED_APPS 中，
     但其外鍵同樣代表「此 PeriodicTask 仍在使用」。
 
-    純歷史紀錄表（ExecutionRecord，外鍵 SET_NULL）不代表排程仍在使用，預設忽略；
+    純歷史紀錄表不代表排程仍在使用，預設忽略套件本地的 ExecutionRecord（外鍵 SET_NULL）。
+    啟用 ``WRITE_MAIN_EXECUTION_RECORDS`` 時，也忽略主專案的 ``celery_skdl_executionrecord``：
+    刪除 PeriodicTask 前會由 signal 一併清除該表紀錄。未啟用時不會清除，
+    所以該表的參照仍視為使用中，避免刪除時違反外鍵約束。
     ``ignore_tables`` 可再指定其他要忽略的資料表。
     """
     from ..models.execution import ExecutionRecord
 
     target_table = PeriodicTask._meta.db_table
+    from django.conf import settings
+
     ignored = {ExecutionRecord._meta.db_table, *ignore_tables}
+    if getattr(settings, "CELERY_SCHEDULER", {}).get(
+        "WRITE_MAIN_EXECUTION_RECORDS", False
+    ):
+        ignored.add("celery_skdl_executionrecord")
     quote = connection.ops.quote_name
     referenced = set()
 
@@ -129,7 +138,9 @@ def resync_all(model_class) -> dict:
     注意：必須先清孤兒再補正——殘留的孤兒可能與 instance.title 同名，
     會使重建 PeriodicTask 時違反 name 唯一性約束。
     """
-    linked_ids = model_class.objects.exclude(task=None).values_list("task_id", flat=True)
+    linked_ids = model_class.objects.exclude(task=None).values_list(
+        "task_id", flat=True
+    )
     in_use_ids = get_referenced_periodic_task_ids()
     orphans = (
         PeriodicTask.objects.filter(task=model_class.task_name)
@@ -142,9 +153,10 @@ def resync_all(model_class) -> dict:
     synced = 0
     for instance in model_class.objects.all():
         # 資料庫還原等情況可能留下指向已不存在 PeriodicTask 的參照，先清掉再重建
-        if instance.task_id is not None and not PeriodicTask.objects.filter(
-            pk=instance.task_id
-        ).exists():
+        if (
+            instance.task_id is not None
+            and not PeriodicTask.objects.filter(pk=instance.task_id).exists()
+        ):
             model_class.objects.filter(pk=instance.pk).update(task=None)
             instance.task = None
         sync_to_periodic_task(instance, created=False)

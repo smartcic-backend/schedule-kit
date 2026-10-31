@@ -38,11 +38,13 @@ def _pre_save_handler(sender, instance, **kwargs):
 
 def _post_save_handler(sender, instance, created, **kwargs):
     from .services.sync import sync_to_periodic_task
+
     sync_to_periodic_task(instance, created)
 
 
 def _post_delete_handler(sender, instance, **kwargs):
     from .services.sync import delete_periodic_task
+
     delete_periodic_task(instance)
 
 
@@ -73,11 +75,52 @@ def register_signals():
     for subclass in get_scheduler_models():
         # 以 app_label.model_name 區分，避免不同 app 的同名 model 互相覆蓋 signal
         uid = f"schedule_kit.{subclass._meta.label_lower}"
-        pre_save.connect(_pre_save_handler, sender=subclass, weak=False,
-                         dispatch_uid=f"{uid}.pre_save")
-        post_save.connect(_post_save_handler, sender=subclass, weak=False,
-                          dispatch_uid=f"{uid}.post_save")
-        post_delete.connect(_post_delete_handler, sender=subclass, weak=False,
-                            dispatch_uid=f"{uid}.post_delete")
-    pre_delete.connect(_periodic_task_pre_delete_handler, sender=PeriodicTask, weak=False,
-                       dispatch_uid="schedule_kit.periodictask.pre_delete")
+        pre_save.connect(
+            _pre_save_handler,
+            sender=subclass,
+            weak=False,
+            dispatch_uid=f"{uid}.pre_save",
+        )
+        post_save.connect(
+            _post_save_handler,
+            sender=subclass,
+            weak=False,
+            dispatch_uid=f"{uid}.post_save",
+        )
+        post_delete.connect(
+            _post_delete_handler,
+            sender=subclass,
+            weak=False,
+            dispatch_uid=f"{uid}.post_delete",
+        )
+    pre_delete.connect(
+        _periodic_task_pre_delete_handler,
+        sender=PeriodicTask,
+        weak=False,
+        dispatch_uid="schedule_kit.periodictask.pre_delete",
+    )
+
+
+# The main project's ORM is not installed in child services. Its FK still needs
+# the same cascade cleanup before deleting a shared PeriodicTask.
+def _delete_main_records(sender, instance, using, **kwargs):
+    from django.conf import settings
+    from django.db import connections
+
+    if not getattr(settings, "CELERY_SCHEDULER", {}).get(
+        "WRITE_MAIN_EXECUTION_RECORDS", False
+    ):
+        return
+    with connections[using].cursor() as cursor:
+        cursor.execute(
+            "DELETE FROM celery_skdl_executionrecord WHERE periodic_task_id = %s",
+            [instance.pk],
+        )
+
+
+pre_delete.connect(
+    _delete_main_records,
+    sender=PeriodicTask,
+    weak=False,
+    dispatch_uid="schedule_kit.delete_main_records",
+)

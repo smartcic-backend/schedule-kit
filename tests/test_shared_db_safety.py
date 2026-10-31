@@ -88,6 +88,48 @@ def test_resync_all_ignores_execution_record_reference():
     assert not PeriodicTask.objects.filter(pk=pt.pk).exists()
 
 
+def create_main_execution_record(periodic_task):
+    """模擬主專案共用的執行紀錄表，以外鍵參照 PeriodicTask。"""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "CREATE TABLE celery_skdl_executionrecord (id integer PRIMARY KEY, "
+            "periodic_task_id integer REFERENCES django_celery_beat_periodictask(id))"
+        )
+        cursor.execute(
+            "INSERT INTO celery_skdl_executionrecord (id, periodic_task_id) VALUES (1, %s)",
+            [periodic_task.id],
+        )
+
+
+@pytest.mark.django_db
+def test_resync_all_ignores_main_execution_record_when_shared_write_enabled(settings):
+    settings.CELERY_SCHEDULER = {
+        "WRITE_MAIN_EXECUTION_RECORDS": True,
+        "EXECUTION_SOURCE": "example-service",
+    }
+    pt = make_unlinked_periodic_task("Orphan With Main History")
+    create_main_execution_record(pt)
+
+    result = resync_all(AlertRuleTask)
+
+    assert result["removed"] == 1
+    assert not PeriodicTask.objects.filter(pk=pt.pk).exists()
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT COUNT(*) FROM celery_skdl_executionrecord")
+        assert cursor.fetchone()[0] == 0
+
+
+@pytest.mark.django_db
+def test_resync_all_keeps_main_execution_record_reference_when_shared_write_disabled():
+    pt = make_unlinked_periodic_task("Main History Without Shared Write")
+    create_main_execution_record(pt)
+
+    result = resync_all(AlertRuleTask)
+
+    assert result["removed"] == 0
+    assert PeriodicTask.objects.filter(pk=pt.pk).exists()
+
+
 @pytest.mark.django_db
 def test_get_referenced_periodic_task_ids_respects_ignore_tables():
     pt = make_unlinked_periodic_task("Ignored Table PT")

@@ -6,6 +6,7 @@ from .services import AlertRuleService
 
 # ── 同步任務：跑完立刻知道結果 ────────────────────────────────────────────────
 
+
 @recorded_task(name="alert_rule_task", queue="myservice")
 def alert_rule_task(task_id: str, record_id: int = 0):
     task = AlertRuleTask.objects.get(id=task_id)
@@ -15,7 +16,8 @@ def alert_rule_task(task_id: str, record_id: int = 0):
 
 # ── 非同步任務：把工作丟給外部 agent，等回調 ──────────────────────────────────
 
-@recorded_task(name="alert_rule_async_task", queue="myservice")
+
+@recorded_task(name="alert_rule_async_task", queue="myservice", require_record=True)
 def alert_rule_async_task(task_id: str, record_id: int = 0):
     task = AsyncAlertRuleTask.objects.get(id=task_id)
     AlertRuleService.dispatch_to_agent(task, record_id=record_id)
