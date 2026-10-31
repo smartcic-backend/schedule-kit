@@ -13,7 +13,7 @@
 | `title` | `CharField(max_length=70, unique=True)` | 排程名稱，全域唯一 |
 | `description` | `TextField(blank=True, default="")` | 排程描述 |
 | `status` | `CharField(choices=STATUS, default="active")` | `active` / `disabled` |
-| `execution_cycle` | `CharField(max_length=128)` | 排程字串，必填。接受 5 欄位 crontab（`*/5 * * * *`）或 `@every <duration>`（`@every 30m`） |
+| `execution_cycle` | `CharField(max_length=128)` | 排程字串，必填。接受 5 欄位 crontab（順序為「分 時 星期 日 月」，例如 `*/5 * * * *`）或 `@every <duration>`（`@every 30m`） |
 | `timezone` | `CharField(max_length=64, default="UTC")` | 排程時區，須為合法的 IANA 時區名稱 |
 | `task` | `OneToOneField(PeriodicTask, null=True, blank=True, on_delete=CASCADE, related_name="%(class)s")` | 對應的 django-celery-beat PeriodicTask，由套件 signal 自動維護 |
 | `created_by` | `FK(AUTH_USER_MODEL, null=True, on_delete=SET_NULL, db_constraint=False)` | 建立者，刪除使用者時設為 null；`db_constraint=False` 允許跨 DB 或軟刪除情境 |

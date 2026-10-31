@@ -3,6 +3,7 @@ from schedule_kit.utils.cron import (
     estimate_period_seconds,
     is_every,
     parse_every_seconds,
+    split_crontab,
     validate_crontab,
 )
 
@@ -41,9 +42,23 @@ class TestParseEverySeconds:
 class TestValidateCrontab:
     def test_valid_formats(self):
         validate_crontab("*/5 * * * *")
-        validate_crontab("0 8 * * 1")
-        validate_crontab("0 0 1 1 *")
+        validate_crontab("0 8 1 * *")  # 每週一 08:00
+        validate_crontab("0 8 mon-fri * *")
+        validate_crontab("0 0 * 1 1")  # 每年 1 月 1 日午夜
         validate_crontab("* * * * *")
+
+    def test_field_order_is_minute_hour_dow_dom_month(self):
+        assert split_crontab("30 8 1 15 6") == {
+            "minute": "30",
+            "hour": "8",
+            "day_of_week": "1",
+            "day_of_month": "15",
+            "month_of_year": "6",
+        }
+
+    def test_month_out_of_range_in_fifth_field(self):
+        with pytest.raises(ValueError):
+            validate_crontab("0 0 * 1 13")
 
     def test_invalid_slash_syntax(self):
         with pytest.raises(ValueError, match="0/2"):

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.1
+
+### BREAKING（修正）
+- crontab 型 `execution_cycle` 的欄位順序改為「分 時 星期 日 月」，與主專案 oivsion360 的 `crontab_display`
+  及既有子專案（MessageCenter）一致。0.3.0 以前依標準 cron「分 時 日 月 星期」解讀。
+  - 第 3～5 欄相同（例如 `0 8 * * *`、`*/5 * * * *`）的排程不受影響。
+  - 其他排程升級前須把 `execution_cycle` 改寫成新順序（`日 月 星期` → `星期 日 月`），
+    再執行 `resync_all()` 重建 CrontabSchedule。
+- 新增 `utils.cron.split_crontab()`，`validate_crontab()`／`get_or_create_schedule()` 皆透過它解析。
+
 ## 0.3.0
 
 前提：建立在 0.2.0（整數排程 ID、可重試的主表寫入）之上。
