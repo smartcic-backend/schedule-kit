@@ -460,6 +460,20 @@ def test_finish_with_plain_text_keeps_legacy_columns(rule):
     )
 
 
+def test_formatting_overflow_preserves_success_and_main_projection(rule, main_table_i18n):
+    message = ExecutionMessage("example.number", "Value %(value)f", {"value": 10**400})
+    record_id = task(rule, lambda _: (rule, True, message)).run(rule.pk)
+    record = ExecutionRecord.objects.get(pk=record_id)
+    assert record.status == "success"
+    assert record.end_time is not None
+    assert record.message == message.msgid
+    assert record.message_i18n == {"en": message.msgid, "zh-hant": message.msgid}
+    assert record.main_synced_at is not None
+    assert main_i18n_rows() == [
+        (message.msgid, message.code, {"value": 10**400}, record.message_i18n)
+    ]
+
+
 REPORT_SENT = ExecutionMessage(
     "example.report.sent", "Report sent to %(count)d recipients", {"count": 3}
 )

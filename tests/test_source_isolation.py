@@ -66,16 +66,18 @@ def status(record):
     return ExecutionRecord.objects.get(pk=record.pk).status
 
 
-def test_shared_maintenance_only_touches_own_source(main_table, caplog):
+@pytest.mark.parametrize("other_source", ["other-service", "Example-Service"])
+def test_shared_maintenance_only_touches_own_source(main_table, caplog, other_source):
+    other_model = f"{other_source}:example.AlertRuleTask"
     old = timedelta(days=30)
     own_pending = make(OWN, "pending", age=timedelta(hours=2))
-    other_pending = make(OTHER, "pending", age=timedelta(hours=2))
+    other_pending = make(other_model, "pending", age=timedelta(hours=2))
     own_unsynced = make(OWN, "success", task_id=2)
-    other_unsynced = make(OTHER, "success", task_id=2)
+    other_unsynced = make(other_model, "success", task_id=2)
     own_expired = make(OWN, "success", age=old, synced=True, task_id=3)
-    other_expired = make(OTHER, "success", age=old, synced=True, task_id=3)
+    other_expired = make(other_model, "success", age=old, synced=True, task_id=3)
     own_extra = [make(OWN, "fail", synced=True, task_id=4) for _ in range(2)]
-    other_extra = [make(OTHER, "fail", synced=True, task_id=4) for _ in range(2)]
+    other_extra = [make(other_model, "fail", synced=True, task_id=4) for _ in range(2)]
 
     with caplog.at_level(logging.INFO), override_settings(CELERY_SCHEDULER=SHARED):
         cleanup_execution_records.run()
@@ -86,7 +88,7 @@ def test_shared_maintenance_only_touches_own_source(main_table, caplog):
     # Retry: only our unsynced outcomes are projected.
     assert ExecutionRecord.objects.get(pk=own_unsynced.pk).main_synced_at is not None
     assert ExecutionRecord.objects.get(pk=other_unsynced.pk).main_synced_at is None
-    assert OTHER not in main_models()
+    assert other_model not in main_models()
     # Day and count retention.
     assert not ExecutionRecord.objects.filter(pk=own_expired.pk).exists()
     assert ExecutionRecord.objects.filter(pk=other_expired.pk).exists()
@@ -97,13 +99,14 @@ def test_shared_maintenance_only_touches_own_source(main_table, caplog):
 
 
 @pytest.mark.parametrize("source", ["", "example-service"])
-def test_unshared_cleanup_keeps_other_sources(source):
+@pytest.mark.parametrize("other_source", ["other-service", "Example-Service"])
+def test_unshared_cleanup_keeps_other_sources(source, other_source):
     config = {"EXECUTION_SOURCE": source, "TASK_RECORD_KEEP_MAX_DAYS": 7}
     old = timedelta(days=30)
     unprefixed = make("example.AlertRuleTask", "success", age=old)
     own = make(OWN, "success", age=old)
-    other = make(OTHER, "success", age=old)
-    other_pending = make(OTHER, "pending", age=old)
+    other = make(f"{other_source}:example.AlertRuleTask", "success", age=old)
+    other_pending = make(f"{other_source}:example.AlertRuleTask", "pending", age=old)
 
     with override_settings(CELERY_SCHEDULER=config):
         cleanup_execution_records.run()

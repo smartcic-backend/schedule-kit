@@ -30,11 +30,14 @@ def own_records(queryset):
     Otherwise: records without a source prefix, plus this project's prefix if set.
     """
     source = _execution_source()
+    # LIKE-based startswith is case-insensitive on SQLite. Match the same source
+    # spelling as Python's startswith in callback and main-projection checks.
+    source_filter = Q(task_model__regex=rf"^{re.escape(str(source))}:")
     if shared_recording_enabled():
-        return queryset.filter(task_model__startswith=f"{source}:")
+        return queryset.filter(source_filter)
     own = ~Q(task_model__contains=":")
     if source:
-        own |= Q(task_model__startswith=f"{source}:")
+        own |= source_filter
     return queryset.filter(own)
 
 

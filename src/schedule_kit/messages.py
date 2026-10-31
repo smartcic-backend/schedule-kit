@@ -24,12 +24,16 @@ import logging
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
+from functools import lru_cache
 from types import MappingProxyType
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
+from django.core.signals import setting_changed
+from django.dispatch import receiver
 from django.utils import translation
-from django.utils.translation import gettext, gettext_noop
+from django.utils.translation import gettext_noop
+from django.utils.translation.trans_real import DjangoTranslation
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +49,25 @@ _SCALARS = (str, int, float, bool, type(None))
 
 def _normalize_language(language) -> str:
     return str(language or "").lower().replace("_", "-")
+
+
+class _MessageTranslation(DjangoTranslation):
+    # Django's catalog loader preserves app/LOCALE_PATHS precedence and locale
+    # variants. Override only its default-language fallback, so a missing msgid
+    # stays English. Do not mutate Django's shared translation objects.
+    def _add_fallback(self, localedirs=None):
+        pass
+
+
+@lru_cache(maxsize=128)
+def _message_translation(language):
+    return _MessageTranslation(language)
+
+
+@receiver(setting_changed)
+def _clear_message_translations(*, setting, **kwargs):
+    if setting in {"LANGUAGE_CODE", "LOCALE_PATHS", "INSTALLED_APPS", "USE_I18N"}:
+        _message_translation.cache_clear()
 
 
 @dataclass(frozen=True)
@@ -97,13 +120,14 @@ class ExecutionMessage:
 
     def render(self, language: str) -> str:
         """Render in `language`; a formatting error falls back to the raw msgid."""
-        with translation.override(language):
-            text = gettext(self.msgid)
+        text = self.msgid
+        if settings.USE_I18N:
+            text = _message_translation(_normalize_language(language)).gettext(self.msgid)
         if self.params is None:
             return text
         try:
             return text % dict(self.params)
-        except (KeyError, TypeError, ValueError):
+        except (KeyError, TypeError, ValueError, OverflowError):
             return self.msgid
 
 

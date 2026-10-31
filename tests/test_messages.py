@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 from django.core.exceptions import ImproperlyConfigured
+from django.test import override_settings
 from django.utils import translation
 from django.utils.translation import gettext_noop
 
@@ -75,6 +76,48 @@ def test_missing_translation_uses_english_msgid():
         "en": "Nothing translated 1",
         "zh-hant": "Nothing translated 1",
     }
+
+
+@override_settings(
+    LANGUAGE_CODE="zh-hant",
+    LANGUAGES=[("en", "English"), ("zh-hant", "Chinese"), ("fr", "French")],
+)
+def test_missing_translation_does_not_use_default_language():
+    with translation.override("zh-hant"):
+        fields = message_fields(messages.TASK_RAISED.with_params(exception="KeyError"))
+        assert translation.get_language() == "zh-hant"
+    assert fields["message"] == "Task raised KeyError"
+    assert fields["message_i18n"] == {
+        "en": "Task raised KeyError",
+        "zh-hant": "任務發生例外：KeyError",
+        "fr": "Task raised KeyError",
+    }
+
+
+def test_locale_paths_and_regional_fallback_are_preserved(tmp_path):
+    from pathlib import Path
+    from shutil import copyfile
+
+    message = messages.TASK_RAISED.with_params(exception="KeyError")
+    assert message.render("fr-ca") == "Task raised KeyError"
+    # Use the bundled catalog as a project translation for French to exercise
+    # LOCALE_PATHS lookup and the fr-ca -> fr fallback without compilemessages.
+    catalog = tmp_path / "fr" / "LC_MESSAGES" / "django.mo"
+    catalog.parent.mkdir(parents=True)
+    copyfile(
+        Path(messages.__file__).parent / "locale" / "zh_Hant" / "LC_MESSAGES" / "django.mo",
+        catalog,
+    )
+    with override_settings(LOCALE_PATHS=[tmp_path]):
+        assert message.render("fr-ca") == "任務發生例外：KeyError"
+    assert message.render("fr-ca") == "Task raised KeyError"
+
+
+@override_settings(USE_I18N=False)
+def test_disabled_i18n_uses_english_msgid():
+    assert messages.TASK_RAISED.with_params(exception="KeyError").render("zh-hant") == (
+        "Task raised KeyError"
+    )
 
 
 def test_missing_param_falls_back_to_raw_msgid():
