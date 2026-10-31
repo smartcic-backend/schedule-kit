@@ -36,6 +36,18 @@ def test_crontab_schedule():
 
 
 @pytest.mark.django_db
+def test_crontab_fields_follow_minute_hour_dow_dom_month_order():
+    task = make(title="Order Test", execution_cycle="30 8 1 15 6", timezone="Asia/Taipei")
+    task.refresh_from_db()
+    cron = task.task.crontab
+    assert (cron.minute, cron.hour) == ("30", "8")
+    assert cron.day_of_week == "1"
+    assert cron.day_of_month == "15"
+    assert cron.month_of_year == "6"
+    assert str(cron.timezone) == "Asia/Taipei"
+
+
+@pytest.mark.django_db
 def test_interval_schedule_on_every():
     task = make(title="Every Test", execution_cycle="@every 30s")
     task.refresh_from_db()

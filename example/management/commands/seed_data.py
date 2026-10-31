@@ -22,7 +22,7 @@ ALERT_RULES = [
     },
     {
         "title": "週間工作時段 CPU 檢查 (Asia/Tokyo)",
-        "execution_cycle": "*/30 8-17 * * mon-fri",
+        "execution_cycle": "*/30 8-17 mon-fri * *",
         "timezone": "Asia/Tokyo",
         "cpu_threshold": 75,
         "target_host": "api-server-01",

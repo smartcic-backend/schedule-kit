@@ -9,15 +9,18 @@
 
 ## crontab
 
-5 個欄位，空白分隔：`分 時 日 月 星期`
+5 個欄位，空白分隔：`分 時 星期 日 月`
+
+> ⚠️ 欄位順序與主專案 oivsion360（`crontab_display`）一致，**不是**標準 cron 的「分 時 日 月 星期」。
+> 例如 `0 8 1 * *` 是「每週一 08:00」，不是「每月 1 號」。
 
 | 欄位 | 範圍 | 說明 |
 |------|------|------|
 | minute | `0-59` | 分鐘 |
 | hour | `0-23` | 小時 |
+| day_of_week | `0-6`（0=週日，6=週六） | 星期，支援命名值 `mon`-`sun` 及其範圍 |
 | day_of_month | `1-31` | 每月幾號 |
 | month_of_year | `1-12` | 月份，也接受 `jan`-`dec` |
-| day_of_week | `0-6`（0=週日，6=週六） | 星期，支援命名值 `mon`-`sun` 及其範圍 |
 
 各欄位支援的語法：
 
@@ -38,12 +41,12 @@
 */5 * * * *              每 5 分鐘
 0 * * * *                每小時整點
 0 8 * * *                每天 08:00
-0 8 * * mon-fri          週一到週五 08:00
-0 8 * * 1                每週一 08:00
-0 0 1 * *                每月 1 號午夜
-0 0 1 jan *              每年 1 月 1 日午夜
-0 9,17 * * mon-fri       週一到週五 09:00 與 17:00
-*/30 8-17 * * mon-fri    週間工作時段每 30 分鐘
+0 8 mon-fri * *          週一到週五 08:00
+0 8 1 * *                每週一 08:00
+0 0 * 1 *                每月 1 號午夜
+0 0 * 1 jan              每年 1 月 1 日午夜
+0 9,17 mon-fri * *       週一到週五 09:00 與 17:00
+*/30 8-17 mon-fri * *    週間工作時段每 30 分鐘
 ```
 
 > **不支援** `0/2` 這類從非零起始的步進語法（Vixie cron 擴充），請改用 `*/2`。
@@ -90,7 +93,7 @@
 
 | 職責 | 位置 |
 |------|------|
-| `is_every` / `parse_every_seconds` / `validate_crontab` | `src/schedule_kit/utils/cron.py` |
+| `is_every` / `parse_every_seconds` / `split_crontab` / `validate_crontab` | `src/schedule_kit/utils/cron.py` |
 | `get_or_create_schedule`（轉成 CrontabSchedule / IntervalSchedule） | `src/schedule_kit/utils/cron.py` |
 | `estimate_period_seconds`（估算週期，用於 expire 計算） | `src/schedule_kit/utils/cron.py` |
 | serializer 的 `validate_execution_cycle` | `src/schedule_kit/serializers/base.py` |

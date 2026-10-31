@@ -10,17 +10,17 @@
 ## 步驟一：安裝
 
 ```bash
-pip install "schedule-kit @ git+https://github.com/smartcic-backend/schedule-kit.git@v0.3.0"
+pip install "schedule-kit @ git+https://github.com/smartcic-backend/schedule-kit.git@v0.3.1"
 ```
 
 或在 `pyproject.toml` 裡加入：
 
 ```toml
 [tool.poetry.dependencies]
-schedule-kit = {git = "https://github.com/smartcic-backend/schedule-kit.git", tag = "v0.3.0"}
+schedule-kit = {git = "https://github.com/smartcic-backend/schedule-kit.git", tag = "v0.3.1"}
 ```
 
-> 建議釘定版本（`tag = "v0.3.0"`），避免每次建置抓到不同 commit 造成不可重現建置。升版時改為對應的新 tag。
+> 建議釘定版本（`tag = "v0.3.1"`），避免每次建置抓到不同 commit 造成不可重現建置。升版時改為對應的新 tag。
 
 ---
 

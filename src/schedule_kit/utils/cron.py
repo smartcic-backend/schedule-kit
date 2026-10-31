@@ -11,6 +11,20 @@ _UNIT_SECONDS = {
 _EVERY_PATTERN = re.compile(r'^(\d+[wdhms])+$')
 _SEGMENT_PATTERN = re.compile(r'(\d+)([wdhms])')
 
+# 欄位順序與主專案 oivsion360 一致：分 時 星期 日 月
+# （不是標準 cron 的「分 時 日 月 星期」）。
+CRONTAB_FIELDS = ('minute', 'hour', 'day_of_week', 'day_of_month', 'month_of_year')
+
+
+def split_crontab(expr: str) -> dict:
+    """把 crontab 字串依 CRONTAB_FIELDS 順序拆成 celery crontab 參數。"""
+    fields = expr.split()
+    if len(fields) != 5:
+        raise ValueError(
+            f"crontab 必須是 5 個欄位（分 時 星期 日 月），收到 {len(fields)} 個：{expr!r}"
+        )
+    return dict(zip(CRONTAB_FIELDS, fields))
+
 
 def is_every(expr: str) -> bool:
     return expr.startswith("@every ")
@@ -29,15 +43,9 @@ def parse_every_seconds(expr: str) -> int:
 
 
 def validate_crontab(expr: str) -> None:
-    fields = expr.split()
-    if len(fields) != 5:
-        raise ValueError(
-            f"crontab 必須是 5 個欄位，收到 {len(fields)} 個：{expr!r}"
-        )
-    minute, hour, dom, month, dow = fields
+    fields = split_crontab(expr)
     try:
-        crontab(minute=minute, hour=hour,
-                day_of_month=dom, month_of_year=month, day_of_week=dow)
+        crontab(**fields)
     except Exception:
         raise ValueError(
             f"crontab 格式不符合 Celery 規範：{expr!r}"
@@ -72,14 +80,8 @@ def get_or_create_schedule(expr: str, timezone: str = "UTC"):
         )
         return schedule, 'interval'
 
-    fields = expr.split()
-    minute, hour, dom, month, dow = fields
     schedule, _ = CrontabSchedule.objects.get_or_create(
-        minute=minute,
-        hour=hour,
-        day_of_month=dom,
-        month_of_year=month,
-        day_of_week=dow,
+        **split_crontab(expr),
         timezone=timezone,
     )
     return schedule, 'crontab'
