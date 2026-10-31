@@ -1,6 +1,8 @@
 SECRET_KEY = "test-secret-key-not-for-production"
 DEBUG = True
 USE_TZ = True
+LANGUAGE_CODE = "en"
+LANGUAGES = [("en", "English"), ("zh-hant", "Traditional Chinese")]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -37,6 +39,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",

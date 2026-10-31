@@ -2,11 +2,13 @@
 
 import logging
 import re
-from datetime import timedelta
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
-from django.db import connection, transaction
+from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
+
+from .conf import get_execution_transport
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +16,33 @@ logger = logging.getLogger(__name__)
 def shared_recording_enabled():
     return getattr(settings, "CELERY_SCHEDULER", {}).get(
         "WRITE_MAIN_EXECUTION_RECORDS", False
+    )
+
+
+def _execution_source():
+    return getattr(settings, "CELERY_SCHEDULER", {}).get("EXECUTION_SOURCE", "")
+
+
+def own_records(queryset):
+    """Limit ExecutionRecords to this project's source (the local table may be shared).
+
+    Shared recording: only `task_model` starting with "<EXECUTION_SOURCE>:".
+    Otherwise: records without a source prefix, plus this project's prefix if set.
+    """
+    source = _execution_source()
+    if shared_recording_enabled():
+        return queryset.filter(task_model__startswith=f"{source}:")
+    own = ~Q(task_model__contains=":")
+    if source:
+        own |= Q(task_model__startswith=f"{source}:")
+    return queryset.filter(own)
+
+
+def is_foreign_record(record) -> bool:
+    """True when the record carries another project's source prefix."""
+    source = _execution_source()
+    return ":" in record.task_model and not (
+        source and record.task_model.startswith(f"{source}:")
     )
 
 
@@ -28,6 +57,8 @@ def scheduler_identity(instance):
             "CELERY_SCHEDULER.EXECUTION_SOURCE must be a stable, globally unique project name "
             "(1-80 letters/digits/._-) when WRITE_MAIN_EXECUTION_RECORDS=True."
         )
+    if shared_recording_enabled():
+        get_execution_transport()  # Fail before business code on an unknown transport.
     label = instance._meta.label if instance is not None else ""
     identity = f"{source}:{label}" if source and label else label
     if len(identity) > 255:
@@ -48,6 +79,7 @@ def write_main_record(record):
         )
         return
     try:
+        transport = get_execution_transport()
         with transaction.atomic():
             # The row lock, main INSERT and sync marker share one database transaction.
             # A callback/retry cannot publish this execution twice.
@@ -74,7 +106,7 @@ def write_main_record(record):
                     "Main execution record deferred: execution source does not match stored identity"
                 )
                 return
-            _insert_main_record(durable)
+            transport.publish(durable)
             durable.main_synced_at = timezone.now()
             durable.save(update_fields=["main_synced_at"])
             record = durable
@@ -83,31 +115,14 @@ def write_main_record(record):
         logger.error("Main execution record write failed: %s", type(exc).__name__)
         return
     try:
-        # Same per-scheduler policy as the owner; cleanup cannot undo the insert.
-        count = max(0, int(getattr(settings, "TASK_RECORD_KEEP_MAX_COUNT", 1000)))
-        days = max(0, int(getattr(settings, "TASK_RECORD_KEEP_MAX_DAYS", 60)))
-        with transaction.atomic():
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    "DELETE FROM celery_skdl_executionrecord WHERE task_model = %s "
-                    "AND task_id = %s AND start_time < %s",
-                    [
-                        record.task_model,
-                        record.task_id,
-                        timezone.now() - timedelta(days=days),
-                    ],
-                )
-                cursor.execute(
-                    "DELETE FROM celery_skdl_executionrecord WHERE id IN ("
-                    "SELECT id FROM celery_skdl_executionrecord WHERE task_model = %s "
-                    "AND task_id = %s ORDER BY start_time DESC, id DESC LIMIT 2147483647 OFFSET %s)",
-                    [record.task_model, record.task_id, count],
-                )
+        transport.cleanup(record)
     except Exception as exc:
         logger.error("Main execution record cleanup failed: %s", type(exc).__name__)
 
 
 def finish_record(record, status, message):
+    """Persist the terminal status; `message` is an ExecutionMessage or plain text."""
+    from .messages import message_fields
     from .models import ExecutionRecord
 
     if record.pk is None:
@@ -122,7 +137,7 @@ def finish_record(record, status, message):
             ).update(
                 status=status,
                 end_time=timezone.now(),
-                message=str(message or "")[:4000],
+                **message_fields(message),
             )
     except Exception as exc:
         # Never publish an outcome that was not durably recorded locally.
@@ -138,8 +153,10 @@ def retry_pending_main_records():
 
     if shared_recording_enabled():
         pending_ids = (
-            ExecutionRecord.objects.filter(
-                status__in=("success", "fail"), main_synced_at=None
+            own_records(
+                ExecutionRecord.objects.filter(
+                    status__in=("success", "fail"), main_synced_at=None
+                )
             )
             .values_list("pk", flat=True)
             .iterator()
@@ -147,24 +164,3 @@ def retry_pending_main_records():
         for record_id in pending_ids:
             write_main_record(ExecutionRecord(pk=record_id))
 
-
-def _insert_main_record(durable):
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO celery_skdl_executionrecord "
-            "(task_title, task_function, task_model, task_id, task_created_by_id, "
-            "result, start_time, end_time, message, periodic_task_id) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-            [
-                durable.task_title[:255],
-                durable.task_function[:255],
-                durable.task_model,
-                durable.task_id,
-                durable.task_created_by_id,
-                durable.status,
-                durable.occurred_at,
-                durable.end_time,
-                durable.message[:4000],
-                durable.periodic_task_id,
-            ],
-        )

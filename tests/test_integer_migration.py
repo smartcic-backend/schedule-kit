@@ -53,8 +53,11 @@ def test_integer_record_rollback_stops_before_removing_data():
                     ("example", "0001_initial"),
                 ]
             )
-        assert ExecutionRecord.objects.get(pk=record.pk).task_id == 42
-        assert ExecutionRecord.objects.get(pk=record.pk).main_synced_at == synced_at
+        # 0005 (nullable i18n columns) is freely reversible and already unapplied
+        # here, so read only the columns the blocked rollback must preserve.
+        assert ExecutionRecord.objects.filter(pk=record.pk).values_list(
+            "task_id", "main_synced_at"
+        ).get() == (42, synced_at)
     finally:
         ExecutionRecord.objects.all().delete()
         MigrationExecutor(connection).migrate(latest)

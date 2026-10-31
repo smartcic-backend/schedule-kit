@@ -5,6 +5,7 @@ from django.apps import apps
 from django.db import transaction
 from django.utils import timezone
 from .exceptions import CeleryKitError
+from .messages import INVALID_RETURN, INVALID_SUCCESS, TASK_RAISED
 from .recording import finish_record, logger, scheduler_identity
 
 
@@ -38,7 +39,11 @@ def recorded_task(
     require_record: bool = False,
     **celery_kwargs,
 ):
-    """Async dispatchers must set require_record=True: callbacks need a durable ID."""
+    """Async dispatchers must set require_record=True: callbacks need a durable ID.
+
+    The task returns ``(instance, success, message)``; ``message`` may be plain text
+    or a ``schedule_kit.messages.ExecutionMessage``.
+    """
 
     def decorator(func):
         options = {"name": name, **celery_kwargs}
@@ -83,16 +88,19 @@ def recorded_task(
             try:
                 result = func(*args, record_id=record.pk, **kwargs)
             except Exception as exc:
-                finish_record(record, "fail", f"Task raised {type(exc).__name__}")
+                # Class name only: exception text may contain secrets.
+                finish_record(
+                    record,
+                    "fail",
+                    TASK_RAISED.with_params(exception=type(exc).__name__),
+                )
                 raise
             if not (isinstance(result, tuple) and len(result) == 3):
-                finish_record(
-                    record, "fail", "Task must return (instance, success, message)"
-                )
+                finish_record(record, "fail", INVALID_RETURN)
                 raise CeleryKitError("Invalid scheduled task return value")
             instance, success, message = result
             if success is not None and not isinstance(success, bool):
-                finish_record(record, "fail", "Task success must be bool or None")
+                finish_record(record, "fail", INVALID_SUCCESS)
                 raise CeleryKitError("Invalid scheduled task success value")
             if instance is not None:
                 record.task_title = str(instance)

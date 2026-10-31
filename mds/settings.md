@@ -13,6 +13,7 @@ CELERY_SCHEDULER = {
     "QUEUE_NAME":                "myservice",
     "WRITE_MAIN_EXECUTION_RECORDS": False,
     "EXECUTION_SOURCE": "myservice",
+    "EXECUTION_TRANSPORT":       "db",
     "SAFETY_MARGIN_SECONDS":     30,
     "MIN_EXPIRE_SECONDS":        60,
     "MAX_EXPIRE_SECONDS":        86400,
@@ -27,6 +28,9 @@ CELERY_SCHEDULER = {
 | 參數 | 預設值 | 說明 |
 |------|--------|------|
 | `QUEUE_NAME` | `"celery"` | Worker 監聽的 queue 名稱，同步時寫入 `PeriodicTask` |
+| `WRITE_MAIN_EXECUTION_RECORDS` | `False` | 是否將終態紀錄寫入主專案共用表 `celery_skdl_executionrecord` |
+| `EXECUTION_SOURCE` | `""` | 本專案的來源名稱，共寫時必填；也是 maintenance 來源隔離的依據 |
+| `EXECUTION_TRANSPORT` | `"db"` | 寫入主專案紀錄的方式，目前只支援 `db`（直接寫共用 DB）；其他值在任務執行業務程式前拋出 `ImproperlyConfigured` |
 | `SAFETY_MARGIN_SECONDS` | `30` | expire 計算的安全邊際（秒），加到估算的執行週期上 |
 | `MIN_EXPIRE_SECONDS` | `60` | expire 下限，避免高頻任務 expire 過短 |
 | `MAX_EXPIRE_SECONDS` | `86400` | expire 上限（1 天），避免低頻任務 expire 過長 |
@@ -88,3 +92,12 @@ app.autodiscover_tasks()
 `WRITE_MAIN_EXECUTION_RECORDS` 預設 `False`。新子專案與既有主專案共寫時設為 `True`；前提與限制見 [接入指引](integration.md#寫入主專案執行紀錄020)。
 
 `EXECUTION_SOURCE` 在共寫啟用時必填，且須跨子專案唯一、部署間固定。模型識別使用 `來源:app_label.ModelName`。`main_synced_at` 是內部同步標記，未同步終態由 maintenance 重試且不會被本機保留政策刪除。maintenance 排程範例見接入指引。
+
+### 主表多語系欄位偵測（0.3.0）
+
+`EXECUTION_TRANSPORT="db"` 寫入主表前，會偵測主表是否已有 `message_code`、`message_params`、`message_i18n`（oivsion360 `celery_skdl.0042`）：
+
+- 有：連同三個欄位一起寫入。
+- 沒有：只寫 0.2.0 的欄位，投影仍視為成功（設定 `main_synced_at`），每個 worker 行程只記錄一次 warning。
+- 偵測結果在行程內快取 300 秒；主專案在 worker 運行中套用 migration 後，最多 5 分鐘開始寫入新欄位。
+- 偵測失敗（例如主表不存在）時不快取，本次寫入失敗並由 callback／maintenance 重試。

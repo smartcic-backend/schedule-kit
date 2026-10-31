@@ -153,3 +153,39 @@ def test_staff_user_sees_all_records(staff_client, user, other_user):
     r = staff_client.get("/api/executions/")
     assert r.status_code == 200
     assert len(r.json()) == 2
+
+
+I18N = {"en": "Task raised ValueError", "zh-hant": "任務發生例外：ValueError"}
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "language, message_i18n, expected",
+    [
+        ("zh-hant", I18N, I18N["zh-hant"]),
+        ("en", I18N, I18N["en"]),
+        ("zh-hant", None, "legacy text"),
+    ],
+)
+def test_execution_message_follows_request_language(
+    staff_client, language, message_i18n, expected
+):
+    ExecutionRecord.objects.create(
+        task_function="test_task",
+        status="fail",
+        occurred_at=timezone.now(),
+        message="legacy text" if message_i18n is None else I18N["en"],
+        message_code=None if message_i18n is None else "schedule_kit.task_raised",
+        message_params=None if message_i18n is None else {"exception": "ValueError"},
+        message_i18n=message_i18n,
+    )
+    r = staff_client.get("/api/executions/", HTTP_ACCEPT_LANGUAGE=language)
+    assert r.status_code == 200
+    [record] = r.json()
+    assert record["message"] == expected
+    assert "message_i18n" not in record
+    if message_i18n is None:
+        assert record["message_code"] is None and record["message_params"] is None
+    else:
+        assert record["message_code"] == "schedule_kit.task_raised"
+        assert record["message_params"] == {"exception": "ValueError"}

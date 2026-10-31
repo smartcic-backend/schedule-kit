@@ -1,9 +1,11 @@
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 
 _DEFAULTS = {
     "QUEUE_NAME": "celery",
     "WRITE_MAIN_EXECUTION_RECORDS": False,
     "EXECUTION_SOURCE": "",
+    "EXECUTION_TRANSPORT": "db",
     "SAFETY_MARGIN_SECONDS": 30,
     "MIN_EXPIRE_SECONDS": 60,
     "MAX_EXPIRE_SECONDS": 86400,
@@ -44,3 +46,17 @@ def get_keep_max_days() -> int:
 
 def get_pending_timeout_hours() -> int:
     return _get("PENDING_TIMEOUT_HOURS")
+
+
+def get_execution_transport():
+    """The MainRecordTransport selected by EXECUTION_TRANSPORT (only "db" for now)."""
+    from .transports import TRANSPORTS
+
+    name = _get("EXECUTION_TRANSPORT")
+    try:
+        return TRANSPORTS[name]()
+    except (KeyError, TypeError):
+        raise ImproperlyConfigured(
+            f"Unsupported CELERY_SCHEDULER.EXECUTION_TRANSPORT {name!r}; "
+            f"supported values: {', '.join(sorted(TRANSPORTS))}"
+        ) from None
