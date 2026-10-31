@@ -20,7 +20,10 @@ class AbstractExecutionRecord(models.Model):
 
 
 class ExecutionRecord(AbstractExecutionRecord):
-    task_model = models.CharField(max_length=255, blank=True, default="")
+    # "<EXECUTION_SOURCE>:<app_label.Model>"; indexed for per-source maintenance.
+    task_model = models.CharField(
+        max_length=255, blank=True, default="", db_index=True
+    )
     task_created_by_id = models.IntegerField(null=True, blank=True)
     celery_task_id = models.CharField(
         max_length=255, blank=True, default="", db_index=True
@@ -28,6 +31,10 @@ class ExecutionRecord(AbstractExecutionRecord):
     status = models.CharField(max_length=8, choices=EXEC_STATUS, default="running")
     end_time = models.DateTimeField(null=True, blank=True)
     message = models.TextField(blank=True, default="")
+    # Same types as oivsion360 celery_skdl.0042; null for legacy plain-text messages.
+    message_code = models.CharField(max_length=100, null=True, blank=True)
+    message_params = models.JSONField(null=True, blank=True)
+    message_i18n = models.JSONField(null=True, blank=True)
     main_synced_at = models.DateTimeField(
         null=True, blank=True, editable=False, db_index=True
     )

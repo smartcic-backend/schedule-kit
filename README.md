@@ -1,4 +1,4 @@
-> 本文件對應開發中的 0.2.0；tag 尚未發佈時請以 `pip install -e .` 驗證。
+> 本文件對應開發中的 0.3.0；tag 尚未發佈時請以 `pip install -e .` 驗證。
 
 # schedule-kit
 
@@ -9,14 +9,14 @@ Django Celery 排程管理套件，標準化各微服務的排程建立、同步
 **從 GitHub 安裝（釘定版本）：**
 
 ```bash
-pip install "schedule-kit @ git+https://github.com/smartcic-backend/schedule-kit.git@v0.2.0"
+pip install "schedule-kit @ git+https://github.com/smartcic-backend/schedule-kit.git@v0.3.0"
 ```
 
 或在 `pyproject.toml` 裡加入：
 
 ```toml
 [tool.poetry.dependencies]
-schedule-kit = {git = "https://github.com/smartcic-backend/schedule-kit.git", tag = "v0.2.0"}
+schedule-kit = {git = "https://github.com/smartcic-backend/schedule-kit.git", tag = "v0.3.0"}
 ```
 
 ## 依賴
@@ -255,6 +255,10 @@ Worker 檢查涵蓋連線、統計、活躍/已排程/已註冊任務；Beat 檢
 
 
 ## 寫入主專案執行紀錄（0.2.0）
+
+> 0.3.0：訊息可用 `ExecutionMessage` 寫入多語系欄位（主專案需套用 oivsion360 `celery_skdl.0042`，未套用時自動降級），
+> 共用 DB 時 maintenance 只處理本專案來源的紀錄（BREAKING）。見 [CHANGELOG](CHANGELOG.md)、
+> [record_flow.md](mds/record_flow.md)、[integration.md](mds/integration.md#多專案共用資料庫030)。
 
 新子專案需與主專案使用同一個資料庫及同一組 `django_celery_beat` 資料表，
 由主專案先完成 `celery_skdl_executionrecord` 的 migration。套件只寫入與刪除關聯紀錄，

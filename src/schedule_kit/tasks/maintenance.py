@@ -4,6 +4,8 @@ from django.utils import timezone
 
 from ..models.execution import ExecutionRecord
 from ..conf import get_keep_max_count, get_keep_max_days, get_pending_timeout_hours
+from ..messages import PENDING_TIMEOUT
+from ..recording import own_records, retry_pending_main_records, shared_recording_enabled
 
 
 @shared_task(name="schedule_kit.cleanup_execution_records")
@@ -14,18 +16,17 @@ def cleanup_execution_records():
     # 超時的 pending / running → fail
     from ..api import update_record
 
-    for record in ExecutionRecord.objects.filter(
-        status__in=("pending", "running"), occurred_at__lt=timeout_cutoff
-    ).iterator():
-        update_record(
-            record.pk, False, f"timeout: {record.status} exceeded configured limit"
+    # The local table may be shared by several projects: only touch our own records.
+    for record in own_records(
+        ExecutionRecord.objects.filter(
+            status__in=("pending", "running"), occurred_at__lt=timeout_cutoff
         )
-
-    from ..recording import retry_pending_main_records, shared_recording_enabled
+    ).iterator():
+        update_record(record.pk, False, PENDING_TIMEOUT.with_params(status=record.status))
 
     retry_pending_main_records()
     # Unsynced terminal outcomes are a durable retry queue, not retention candidates.
-    eligible = ExecutionRecord.objects.filter(status__in=("success", "fail"))
+    eligible = own_records(ExecutionRecord.objects.filter(status__in=("success", "fail")))
     if shared_recording_enabled():
         eligible = eligible.filter(main_synced_at__isnull=False)
 

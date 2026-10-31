@@ -1,0 +1,42 @@
+# schedule-kit translations.
+# This file is distributed under the same license as the schedule-kit package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: schedule-kit\n"
+"Report-Msgid-Bugs-To: \n"
+"Language: zh_Hant\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: messages.py:112
+#, python-format
+msgid "Task raised %(exception)s"
+msgstr "任務發生例外：%(exception)s"
+
+#: messages.py:116
+msgid "Task must return (instance, success, message)"
+msgstr "任務必須回傳 (instance, success, message)"
+
+#: messages.py:119
+msgid "Task success must be bool or None"
+msgstr "任務的 success 必須為 bool 或 None"
+
+#: messages.py:124
+#, python-format
+msgid "timeout: %(status)s exceeded configured limit"
+msgstr "逾時：%(status)s 狀態超過設定的時限"
+
+#: messages.py:128
+msgid "Task returned an invalid execution message"
+msgstr "任務回傳的執行訊息不合法"
+
+#: models/base.py:6
+msgid "active"
+msgstr ""
+
+#: models/base.py:6
+msgid "disabled"
+msgstr ""

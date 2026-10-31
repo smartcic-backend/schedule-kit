@@ -1,4 +1,4 @@
-> 本文件對應開發中的 0.2.0；tag 尚未發佈時請以 `pip install -e .` 驗證。
+> 本文件對應開發中的 0.3.0；tag 尚未發佈時請以 `pip install -e .` 驗證。
 
 # 接入指引
 
@@ -10,17 +10,17 @@
 ## 步驟一：安裝
 
 ```bash
-pip install "schedule-kit @ git+https://github.com/smartcic-backend/schedule-kit.git@v0.2.0"
+pip install "schedule-kit @ git+https://github.com/smartcic-backend/schedule-kit.git@v0.3.0"
 ```
 
 或在 `pyproject.toml` 裡加入：
 
 ```toml
 [tool.poetry.dependencies]
-schedule-kit = {git = "https://github.com/smartcic-backend/schedule-kit.git", tag = "v0.2.0"}
+schedule-kit = {git = "https://github.com/smartcic-backend/schedule-kit.git", tag = "v0.3.0"}
 ```
 
-> 建議釘定版本（`tag = "v0.2.0"`），避免每次建置抓到不同 commit 造成不可重現建置。升版時改為對應的新 tag。
+> 建議釘定版本（`tag = "v0.3.0"`），避免每次建置抓到不同 commit 造成不可重現建置。升版時改為對應的新 tag。
 
 ---
 
@@ -333,6 +333,18 @@ callback 應呼叫 `update_record()`；重複回呼只處理第一次終態，�
 提供的業務 message 須由呼叫端去除敏感資訊，套件截斷至 4000 字元；
 未捕捉例外的紀錄只寫例外類別，不儲存原始錯誤內容。
 
+### 多語系訊息與主專案 `0042`（0.3.0）
+
+任務以 `ExecutionMessage` 回傳訊息時（見 [record_flow.md](record_flow.md#執行訊息代碼與多語系030)），
+寫入主表時會一併寫入 `message_code`、`message_params`、`message_i18n`，主專案依查看者語系從 `message_i18n` 挑選顯示，
+不需要收錄子專案的翻譯檔。`message` 一律為英文版本。
+
+- 相依：主專案 oivsion360 須套用 `celery_skdl.0042`（新增上述三個可為 NULL 的欄位），才會顯示多語系。
+- 降級：主表還沒有這些欄位時，套件自動只寫 0.2.0 的欄位，投影仍成功並標記已同步，worker 行程記錄一次 warning；
+  因此套件與主專案的部署順序不受限制。欄位偵測結果快取 300 秒，細節見 [settings.md](settings.md#主表多語系欄位偵測030)。
+- 寫入方式由 `EXECUTION_TRANSPORT` 決定，目前只支援 `db`。
+- `message_params` 會寫入主表，只能放可公開的值。
+
 ## 從 UUID 版本升級
 
 此版本為不相容更新，適用新子專案。既有 UUID 排程不能直接改型別。
@@ -370,3 +382,20 @@ CELERY_BEAT_SCHEDULE = {
 主專案與本機同步標記須位於同一資料庫；不要以 DB router 把兩者分開。
 若使用尚未發布的早期 0.2.0 測試版本，升級前須核對已共寫的紀錄再補同步標記，
 不能將所有舊資料直接視為未送達，否則可能重送。正式切換前請核對來源映射與同步狀態。
+
+## 多專案共用資料庫（0.3.0）
+
+主專案與多個子專案（例如 alertv2、MessageCenter）使用同一個 DB 時，也會共用套件的本地表
+`schedule_kit_executionrecord`。須遵守：
+
+- **同一版 migration**：同一個 DB 中所有安裝 schedule-kit 的專案必須升級到同一版套件，並執行 `migrate schedule_kit`。
+  `0005` 只新增可為 NULL 的欄位與 `task_model` 索引，舊版程式仍可寫入，但不要讓各專案長期停在不同版本。
+- **`EXECUTION_SOURCE` 不可重複**：每個專案使用固定且唯一的來源名稱；本地紀錄的 `task_model` 為 `來源:app_label.Model`，
+  是判斷紀錄歸屬的唯一依據。
+- **maintenance 只處理自己的紀錄**（**BREAKING**，行為修正）：
+  - 啟用共寫時，逾時標記、補送主表與天數／筆數清理，只處理 `task_model` 以 `<EXECUTION_SOURCE>:` 開頭的紀錄。
+  - 未啟用共寫時，只處理沒有來源前綴的紀錄，以及（有設定 `EXECUTION_SOURCE` 時）本專案前綴的紀錄。
+  - 0.2.0 會處理整張表，可能把其他專案的 pending 紀錄標為逾時、刪除其他專案未同步的紀錄，或對其他來源的紀錄記錄「來源不符」錯誤。
+    若有專案依賴「清理全部紀錄」，升級後須由各專案自己的 maintenance 處理。
+  - 啟用共寫時，沒有來源前綴的紀錄（例如找不到排程、`task_model` 為空的紀錄）不屬於任何專案的 maintenance 範圍。
+- **回呼不跨來源**：`update_record()` 收到其他來源的紀錄 ID 時不更新紀錄，只記錄 warning，回呼流程不會中斷。

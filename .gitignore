@@ -53,6 +53,8 @@ cover/
 
 # Translations
 *.mo
+# Ship compiled package catalogs so installs need no compilemessages.
+!src/schedule_kit/locale/**/*.mo
 *.pot
 
 # Django stuff:
