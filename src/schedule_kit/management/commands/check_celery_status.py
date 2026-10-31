@@ -193,6 +193,8 @@ class Command(BaseCommand):
                 line += f' | {self.style.WARNING(f"已停用: {disabled_count}")}'
             self.stdout.write(line)
 
+            self._print_detached_schedulers()
+
             if format_type == "detailed":
                 self._print_task_list()
 
@@ -204,6 +206,32 @@ class Command(BaseCommand):
                 import traceback
 
                 self.stdout.write(traceback.format_exc())
+
+    def _print_detached_schedulers(self):
+        """列出啟用中、但已失去 PeriodicTask 的排程（beat 不會執行）。"""
+        from ...signals import get_scheduler_models
+
+        detached = []
+        for model in get_scheduler_models():
+            for pk, title in model.objects.filter(
+                status="active", task__isnull=True
+            ).values_list("pk", "title"):
+                detached.append((model, pk, title))
+
+        if not detached:
+            self.stdout.write(self.style.SUCCESS("  ✓ 沒有失去 PeriodicTask 的啟用排程"))
+            return
+
+        self.stdout.write(
+            self.style.WARNING(
+                f"  ⚠ {len(detached)} 個啟用中的排程已失去 PeriodicTask，beat 不會執行："
+            )
+        )
+        for model, pk, title in detached:
+            self.stdout.write(f"    - {model._meta.label} id={pk} {title}")
+        self.stdout.write(
+            self.style.WARNING("    可呼叫 schedule_kit.services.resync_all(<Model>) 重建")
+        )
 
     def _print_task_list(self):
         self.stdout.write("\n[2] 任務列表...")
