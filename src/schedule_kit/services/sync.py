@@ -1,4 +1,5 @@
 import json
+from django.db import connection
 from django.utils import timezone
 from django_celery_beat.models import PeriodicTask
 
@@ -78,14 +79,61 @@ def delete_periodic_task(instance) -> None:
             pass
 
 
+def get_referenced_periodic_task_ids(ignore_tables=()) -> set:
+    """回傳仍被任一資料表外鍵參照的 PeriodicTask id。
+
+    以資料庫 introspection 掃描所有資料表的外鍵，而非只看本專案載入的 model：
+    多個專案共用同一個資料庫時，其他專案的排程表不在 INSTALLED_APPS 中，
+    但其外鍵同樣代表「此 PeriodicTask 仍在使用」。
+
+    純歷史紀錄表不代表排程仍在使用，預設忽略套件本地的 ExecutionRecord（外鍵 SET_NULL）。
+    啟用 ``WRITE_MAIN_EXECUTION_RECORDS`` 時，也忽略主專案的 ``celery_skdl_executionrecord``：
+    刪除 PeriodicTask 前會由 signal 一併清除該表紀錄。未啟用時不會清除，
+    所以該表的參照仍視為使用中，避免刪除時違反外鍵約束。
+    ``ignore_tables`` 可再指定其他要忽略的資料表。
+    """
+    from ..models.execution import ExecutionRecord
+
+    target_table = PeriodicTask._meta.db_table
+    from django.conf import settings
+
+    ignored = {ExecutionRecord._meta.db_table, *ignore_tables}
+    if getattr(settings, "CELERY_SCHEDULER", {}).get(
+        "WRITE_MAIN_EXECUTION_RECORDS", False
+    ):
+        ignored.add("celery_skdl_executionrecord")
+    quote = connection.ops.quote_name
+    referenced = set()
+
+    with connection.cursor() as cursor:
+        for table in connection.introspection.table_names(cursor):
+            if table in ignored:
+                continue
+            relations = connection.introspection.get_relations(cursor, table)
+            for column, (_ref_column, ref_table) in relations.items():
+                if ref_table != target_table:
+                    continue
+                cursor.execute(
+                    f"SELECT DISTINCT {quote(column)} FROM {quote(table)} "
+                    f"WHERE {quote(column)} IS NOT NULL"
+                )
+                referenced.update(row[0] for row in cursor.fetchall())
+
+    return referenced
+
+
 def resync_all(model_class) -> dict:
     """全量對齊排程 model 與 PeriodicTask，回傳 {"synced": N, "removed": N}。
 
-    - 移除孤兒 PeriodicTask（task_name 屬於此 model、但已無任何 instance 關聯）
+    - 移除孤兒 PeriodicTask（task_name 屬於此 model、未被此 model 關聯，
+      且未被資料庫中任何其他資料表的外鍵參照）
     - 補正所有 instance 的 PeriodicTask（含被外部停用、設定漂移的情況）
 
     適用情境：批次匯入後同步、手動修改 Beat 資料表後重新對齊、
     系統異常後的一致性恢復。
+
+    共用資料庫時，其他 model 或其他專案可能使用相同的 task 名稱；
+    只要 PeriodicTask 仍被任何外鍵參照就視為使用中，不會被刪除。
 
     注意：必須先清孤兒再補正——殘留的孤兒可能與 instance.title 同名，
     會使重建 PeriodicTask 時違反 name 唯一性約束。
@@ -93,8 +141,11 @@ def resync_all(model_class) -> dict:
     linked_ids = model_class.objects.exclude(task=None).values_list(
         "task_id", flat=True
     )
-    orphans = PeriodicTask.objects.filter(task=model_class.task_name).exclude(
-        id__in=linked_ids
+    in_use_ids = get_referenced_periodic_task_ids()
+    orphans = (
+        PeriodicTask.objects.filter(task=model_class.task_name)
+        .exclude(id__in=linked_ids)
+        .exclude(id__in=in_use_ids)
     )
     removed = orphans.count()
     orphans.delete()

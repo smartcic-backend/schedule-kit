@@ -1,6 +1,11 @@
-from django.db.models.signals import post_delete, post_save, pre_save, pre_delete
+import logging
+
+from django.db.models.signals import post_delete, post_save, pre_delete, pre_save
 from django_celery_beat.models import PeriodicTask
+
 from .models.base import BaseSchedulerTask
+
+logger = logging.getLogger(__name__)
 
 
 def _get_all_subclasses(cls):
@@ -10,6 +15,11 @@ def _get_all_subclasses(cls):
             result.append(sub)
         result.extend(_get_all_subclasses(sub))
     return result
+
+
+def get_scheduler_models():
+    """回傳所有非 abstract 的 BaseSchedulerTask 子類。"""
+    return _get_all_subclasses(BaseSchedulerTask)
 
 
 def _pre_save_handler(sender, instance, **kwargs):
@@ -38,9 +48,33 @@ def _post_delete_handler(sender, instance, **kwargs):
     delete_periodic_task(instance)
 
 
+def _periodic_task_pre_delete_handler(sender, instance, **kwargs):
+    """直接刪除仍被排程關聯的 PeriodicTask 時發出警告。
+
+    排程的 task 外鍵為 SET_NULL：PeriodicTask 被刪除後排程本身仍在，
+    但 task 變成 None，beat 不再執行，畫面上卻看不出異常。
+    由排程刪除連帶刪除 PeriodicTask 時，排程已不存在，不會觸發警告。
+    """
+    for model in get_scheduler_models():
+        detached = list(
+            model.objects.filter(task_id=instance.pk).values_list("pk", flat=True)
+        )
+        if detached:
+            logger.warning(
+                "PeriodicTask %s (id=%s) 被刪除，%s %s 將失去排程而不再執行；"
+                "可呼叫 resync_all(%s) 重建",
+                instance.name,
+                instance.pk,
+                model._meta.label,
+                detached,
+                model.__name__,
+            )
+
+
 def register_signals():
-    for subclass in _get_all_subclasses(BaseSchedulerTask):
-        uid = f"schedule_kit.{subclass.__name__}"
+    for subclass in get_scheduler_models():
+        # 以 app_label.model_name 區分，避免不同 app 的同名 model 互相覆蓋 signal
+        uid = f"schedule_kit.{subclass._meta.label_lower}"
         pre_save.connect(
             _pre_save_handler,
             sender=subclass,
@@ -59,6 +93,12 @@ def register_signals():
             weak=False,
             dispatch_uid=f"{uid}.post_delete",
         )
+    pre_delete.connect(
+        _periodic_task_pre_delete_handler,
+        sender=PeriodicTask,
+        weak=False,
+        dispatch_uid="schedule_kit.periodictask.pre_delete",
+    )
 
 
 # The main project's ORM is not installed in child services. Its FK still needs

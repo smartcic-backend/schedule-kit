@@ -174,7 +174,8 @@ result = resync_all(MyTask)
 
 執行內容（依序）：
 
-1. **移除孤兒 PeriodicTask**：`task` 名稱屬於此 model、但已無任何 instance 關聯的殘留排程
+1. **移除孤兒 PeriodicTask**：`task` 名稱屬於此 model、但已無任何 instance 關聯的殘留排程。
+   仍被資料庫中**任何資料表外鍵參照**的 PeriodicTask 一律保留（包含其他 model 或共用同一資料庫的其他專案使用相同 task 名稱的排程）；`ExecutionRecord` 等歷史紀錄的參照不算使用中，啟用 `WRITE_MAIN_EXECUTION_RECORDS` 時，主專案 `celery_skdl_executionrecord` 的參照也不算
 2. **補正所有 instance**：重建缺失的 PeriodicTask、修正被外部停用或設定漂移的排程
 
 適用情境：
@@ -229,7 +230,7 @@ python manage.py trigger_task --args '["a1b2c3d4-0000-0000-0000-000000000001"]' 
 ```bash
 python manage.py check_celery_status                  # 全部檢查
 python manage.py check_celery_status --check worker   # 只檢查 Worker（需 broker 連線）
-python manage.py check_celery_status --check beat     # 只檢查 Beat 資料庫
+python manage.py check_celery_status --check beat     # 只檢查 Beat 資料庫（含列出已失去 PeriodicTask 的啟用排程）
 python manage.py check_celery_status --format simple  # 精簡輸出
 ```
 
