@@ -243,6 +243,8 @@ Worker 檢查涵蓋連線、統計、活躍/已排程/已註冊任務；Beat 檢
 
 逐步整合指引（INSTALLED_APPS、必填設定、model / serializer / task / view 各層接入方式、常見錯誤）見 [`mds/integration.md`](./mds/integration.md)。
 
+> 放排程 model 的 app 不可命名為 `celery`（例如 `apps/celery/`），否則會遮蔽 Celery 套件，worker 子程序會因 `No module named 'celery.__main__'` 啟動失敗。請改用 `apps/scheduler/` 等名稱，詳見[常見錯誤](./mds/integration.md#排程-app-命名為-celery遮蔽-celery-套件)。
+
 ## 範例
 
 完整可運行的接入範例見 [`example/`](./example/) 目錄。
