@@ -75,6 +75,10 @@ python manage.py migrate
 
 ## 步驟四：定義 Model
 
+> **放排程 model 的 Django app 不可命名為 `celery`**（例如 `apps/celery/`），也不要跟其他已安裝的套件同名。
+> 專案若把 `apps/` 加進 `sys.path`，這個資料夾會遮蔽 Celery 套件本身，worker 子程序會啟動失敗。
+> 建議用 `apps/scheduler/` 之類的名稱；app label 可另外指定。詳見[常見錯誤](#排程-app-命名為-celery遮蔽-celery-套件)。
+
 繼承 `BaseSchedulerTask`，加上業務欄位，並實作兩個必要項目：
 
 ```python
@@ -288,6 +292,63 @@ celery -A config worker -Q myservice
 
 0.2.0 起排程 ID 為自動遞增整數，`get_task_args()` 回傳 `[self.id]`。
 Celery 的 `self.request.id` 仍是 UUID，兩者不可混用。
+
+### 排程 app 命名為 celery（遮蔽 celery 套件）
+
+**症狀**：worker 能啟動，也能連上 RabbitMQ，但 log 反覆出現（次數與 concurrency 相同）：
+
+```
+ModuleNotFoundError: No module named 'celery.__main__'
+```
+
+任務一進來，worker 就整個關閉；`@recorded_task` 沒有執行，所以也沒有寫入 `ExecutionRecord`。
+
+**原因**：
+
+1. 不少子專案的 settings 會把 `apps/` 加進 import 搜尋路徑的最前面，例如：
+
+   ```python
+   sys.path.insert(0, os.path.join(BASE_DIR, "apps"))
+   ```
+
+2. 如果排程 app 放在 `apps/celery/`，之後只要再 `import celery`，Python 會先找到 `apps/celery`，而不是真正的 Celery 套件。
+3. macOS 上，prefork pool 以 spawn 建立子程序：重新啟動一個 Python，繼承主程序的 `sys.path`，再重新執行 `bin/celery`。
+4. 子程序執行 `from celery.__main__ import main` 時找到的是 `apps/celery`，裡面沒有 `__main__`，因此失敗。
+5. 主程序在載入 settings 之前就已經 import 了真正的 Celery，所以本身能啟動，但 pool 裡沒有能用的子程序。
+
+Linux（Docker）以 fork 建立子程序，會直接沿用已 import 的模組，所以不會出現這個錯誤。但遮蔽問題仍然存在，之後只要有程式在 `sys.path` 修改後才 import `celery`，就會踩到。
+
+**解法**：不要用 `celery` 當資料夾或模組名稱，也不要跟其他已安裝的套件同名。
+
+```text
+# ❌ 會遮蔽 celery 套件
+apps/celery/
+
+# ✅ 改用不衝突的名稱
+apps/scheduler/
+```
+
+已經建立的 app 要改名時，在 AppConfig 保留原本的 `label`，migration 紀錄與資料表就不受影響，只需要更新 `INSTALLED_APPS`、urls 和 import 路徑：
+
+```python
+class SchedulerConfig(AppConfig):
+    name = "apps.scheduler"
+    label = "myservice_celery"   # 維持原 label，django_migrations 不必調整
+```
+
+**相關：macOS 本機跑 worker**
+
+修好遮蔽問題後，macOS 上的 prefork 子程序仍可能出現：
+
+```
+ValueError: not enough values to unpack (expected 3, got 0)
+```
+
+這是因為 Celery 的 prefork 預期以 fork 建立子程序，spawn 啟動的子程序沒有初始化 `fast_trace_task` 需要的資料。本機開發請改用單一程序的 pool，或改在 Docker（Linux）裡跑 worker：
+
+```bash
+celery -A config worker -Q myservice -l info -P solo
+```
 
 ### schedule_kit 未在 INSTALLED_APPS
 
